@@ -1894,4 +1894,196 @@ async function boot() {
   showHint();
 }
 
+document.getElementById("import-btn").addEventListener("click", () => {
+  document.getElementById("import-textarea").value = "";
+  document.getElementById("import-status").textContent = "";
+  document.getElementById("import-status").className = "import-status";
+  document.getElementById("import-modal-title").textContent = "import js";
+  document.getElementById("import-modal-body").innerHTML = `
+    <div class="import-hint">paste javascript below — it'll be parsed into nodes</div>
+    <textarea class="import-textarea" id="import-textarea" placeholder="// paste your js here&#10;let x = 5 + 3;&#10;console.log(x);"></textarea>
+    <div class="import-status" id="import-status"></div>
+  `;
+  document.getElementById("import-modal").classList.add("open");
+});
+
+document.getElementById("import-modal-close").addEventListener("click", () => {
+  document.getElementById("import-modal").classList.remove("open");
+});
+
+document.getElementById("import-cancel-btn").addEventListener("click", () => {
+  document.getElementById("import-modal").classList.remove("open");
+});
+
+document.getElementById("import-go-btn").addEventListener("click", () => {
+  const raw = document.getElementById("import-textarea")?.value?.trim();
+  if (!raw) return;
+
+  const body = document.getElementById("import-modal-body");
+  const title = document.getElementById("import-modal-title");
+  title.textContent = "parsing...";
+  body.innerHTML = `<div class="import-parsing"><span id="import-dots">.</span> analyzing code</div>`;
+
+  const dots = document.getElementById("import-dots");
+  let d = 0;
+  const dotInt = setInterval(() => {
+    d = (d + 1) % 3;
+    dots.textContent = ".".repeat(d + 1);
+  }, 350);
+
+  const delay = 1200 + Math.random() * 1800;
+  setTimeout(() => {
+    clearInterval(dotInt);
+    try {
+      const result = parseJSIntoNodes(raw);
+      document.getElementById("import-modal").classList.remove("open");
+      toast(`imported ${result} node${result !== 1 ? "s" : ""}`);
+    } catch (err) {
+      title.textContent = "import js";
+      body.innerHTML = `
+        <div class="import-hint">paste javascript below — it'll be parsed into nodes</div>
+        <textarea class="import-textarea" id="import-textarea" placeholder="// paste your js here&#10;let x = 5 + 3;&#10;console.log(x);"></textarea>
+        <div class="import-status err" id="import-status">parse error: ${err.message}</div>
+      `;
+      document.getElementById("import-textarea").value = raw;
+    }
+  }, delay);
+});
+
+function parseJSIntoNodes(code) {
+  const lines = code
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let count = 0;
+  let col = 0;
+
+  const place = (type, x, y, fields) => {
+    const id = makeNode(type, x, y);
+    if (fields && id) {
+      Object.entries(fields).forEach(([k, v]) => {
+        if (nodes[id]) nodes[id].f[k] = v;
+      });
+      const el = document.getElementById("node-" + id);
+      if (el) {
+        el.querySelectorAll(".nfinput, .nfsel").forEach((inp) => {
+          const fld = TYPES[nodes[id].type]?.fields.find(
+            (f) => nodes[id].f[f.id] === inp.value || true,
+          );
+          if (inp.tagName === "INPUT" || inp.tagName === "TEXTAREA") {
+            const key = Object.keys(nodes[id].f).find(
+              (k) => nodes[id].f[k] !== undefined,
+            );
+          }
+        });
+        el.querySelectorAll(".nfinput").forEach((inp) => {
+          const fieldDef = TYPES[nodes[id].type]?.fields.find((fd) => {
+            return nodes[id].f[fd.id] !== undefined;
+          });
+        });
+        TYPES[nodes[id].type]?.fields.forEach((fd, i) => {
+          const inp = el.querySelectorAll(".nfinput, .nfsel")[i];
+          if (inp) inp.value = nodes[id].f[fd.id] ?? "";
+        });
+      }
+    }
+    count++;
+    return id;
+  };
+
+  const baseX = (Object.keys(nodes).length % 6) * 220 + 60;
+  const baseY = 80 + Math.floor(Object.keys(nodes).length / 6) * 180;
+
+  lines.forEach((line, i) => {
+    const x = baseX + (col % 4) * 220;
+    const y = baseY + i * 160;
+
+    const varMatch = line.match(/^(let|const|var)\s+(\w+)\s*=\s*(.+?);?$/);
+    if (varMatch) {
+      const [, kind, name, val] = varMatch;
+      const numId = place("number", x + 20, y - 60, { v: val.trim() });
+      const varId = place("variable", x, y, { kind, name });
+      if (numId && varId) {
+        const outPort = Object.values(nodes).find((n) => n.id === numId);
+        if (outPort) addConn(numId, "out", varId, "val");
+      }
+      return;
+    }
+
+    const logMatch = line.match(/^console\.log\((.+?)\);?$/);
+    if (logMatch) {
+      const inner = logMatch[1].trim();
+      const isNum = /^-?\d+(\.\d+)?$/.test(inner);
+      const isStr = /^["'`]/.test(inner);
+      let valId;
+      if (isNum) valId = place("number", x + 20, y - 60, { v: inner });
+      else if (isStr)
+        valId = place("string", x + 20, y - 60, {
+          v: inner.replace(/^["'`]|["'`]$/g, ""),
+        });
+      else valId = place("raw_js", x + 20, y - 60, { code: inner });
+      const logId = place("log", x, y, {});
+      if (valId && logId) addConn(valId, "out", logId, "val");
+      return;
+    }
+
+    const assignMatch = line.match(/^(\w+)\s*=\s*(.+?);?$/);
+    if (assignMatch) {
+      const [, name, val] = assignMatch;
+      const isNum = /^-?\d+(\.\d+)?$/.test(val.trim());
+      let valId;
+      if (isNum) valId = place("number", x + 20, y - 60, { v: val.trim() });
+      else valId = place("raw_js", x + 20, y - 60, { code: val.trim() });
+      const asId = place("assign", x, y, { name });
+      if (valId && asId) addConn(valId, "out", asId, "val");
+      return;
+    }
+
+    const retMatch = line.match(/^return\s+(.+?);?$/);
+    if (retMatch) {
+      const inner = retMatch[1].trim();
+      const isNum = /^-?\d+(\.\d+)?$/.test(inner);
+      let valId;
+      if (isNum) valId = place("number", x + 20, y - 60, { v: inner });
+      else valId = place("raw_js", x + 20, y - 60, { code: inner });
+      const retId = place("ret", x, y, {});
+      if (valId && retId) addConn(valId, "out", retId, "val");
+      return;
+    }
+
+    const commentMatch = line.match(/^\/\/\s?(.*)$/);
+    if (commentMatch) {
+      place("comment", x, y, { text: commentMatch[1] });
+      return;
+    }
+
+    if (line.startsWith("for ")) {
+      const m = line.match(/for\s*\(([^;]+);\s*([^;]+);\s*([^)]+)\)/);
+      place("for_loop", x, y, {
+        init: m ? m[1].trim() : "let i = 0",
+        cond: m ? m[2].trim() : "i < 10",
+        update: m ? m[3].trim() : "i++",
+        body: "",
+      });
+      return;
+    }
+
+    if (line.startsWith("while ")) {
+      place("while_loop", x, y, { body: "" });
+      return;
+    }
+
+    if (line.startsWith("if ")) {
+      place("if_stmt", x, y, { body: line });
+      return;
+    }
+
+    place("raw_js", x, y, { code: line });
+  });
+
+  drawWires();
+  showHint();
+  return count;
+}
+
 boot();

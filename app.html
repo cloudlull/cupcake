@@ -1,72 +1,99 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>cupcake</title>
-<link rel="stylesheet" href="/css/styles.css">
-</head>
-<body>
-
-<div id="toolbar">
-  <div class="logo">🧁 cupcake <span class="logo-tag">visual js</span></div>
-  <div class="sep"></div>
-  <div class="dd" id="save-dd">
-    <button class="btn" id="save-btn">save ▾</button>
-    <div class="dd-menu" id="save-dd-menu"></div>
-  </div>
-  <div class="dd" id="load-dd">
-    <button class="btn" id="load-btn">load ▾</button>
-    <div class="dd-menu" id="load-dd-menu"></div>
-  </div>
-  <button class="btn" id="clear-btn">clear</button>
-  <div class="sep"></div>
-  <button class="btn icon-btn" id="zoom-out-btn" title="zoom out">−</button>
-  <button class="btn icon-btn" id="zoom-in-btn" title="zoom in">+</button>
-  <button class="btn icon-btn" id="home-btn" title="go to origin">⌂</button>
-  <div class="spacer"></div>
-  <div class="coord-display" id="coord-display">
-    x: <span id="coord-x">0</span> &nbsp; y: <span id="coord-y">0</span> &nbsp; zoom: <span id="coord-z">100%</span>
-  </div>
-  <div class="sep"></div>
-  <button class="btn go" id="compile-btn">compile →</button>
-</div>
-
-<div id="sidebar">
-  <div class="sidebar-tabs" id="sidebar-tabs"></div>
-  <div id="sidebar-panes"></div>
-</div>
-
-<div id="canvas-wrap">
-  <div id="grid-bg"></div>
-  <div id="canvas">
-    <svg id="svg-overlay"></svg>
-  </div>
-</div>
-
-<div id="hint">
-  <div class="hint-icon">🧁</div>
-  <div class="hint-txt">click nodes in the sidebar to add them<br>drag nodes · connect ports · compile to js<br>scroll to zoom · drag canvas to pan</div>
-</div>
-
-<div class="overlay" id="compile-modal">
-  <div class="modal">
-    <div class="mtop">
-      <span class="mtitle" id="modal-title">compiled output</span>
-      <button class="mclose" id="modal-close">✕</button>
+  <head>
+    <meta charset="UTF-8" />
+    <title>cupcake</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div id="toolbar">
+      <div class="logo">🧁 cupcake <span class="logo-tag">visual js</span></div>
+      <div class="sep"></div>
+      <div class="dd" id="save-dd">
+        <button class="btn" id="save-btn">save ▾</button>
+        <div class="dd-menu" id="save-dd-menu"></div>
+      </div>
+      <div class="dd" id="load-dd">
+        <button class="btn" id="load-btn">load ▾</button>
+        <div class="dd-menu" id="load-dd-menu"></div>
+      </div>
+      <button class="btn" id="clear-btn">clear</button>
+      <button class="btn" id="import-btn">import js</button>
+      <div class="sep"></div>
+      <button class="btn icon-btn" id="zoom-out-btn" title="zoom out">−</button>
+      <button class="btn icon-btn" id="zoom-in-btn" title="zoom in">+</button>
+      <button class="btn icon-btn" id="home-btn" title="go to origin">⌂</button>
+      <div class="spacer"></div>
+      <div class="coord-display" id="coord-display">
+        x: <span id="coord-x">0</span> &nbsp; y:
+        <span id="coord-y">0</span> &nbsp; zoom: <span id="coord-z">100%</span>
+      </div>
+      <div class="sep"></div>
+      <button class="btn go" id="compile-btn">compile →</button>
     </div>
-    <div class="mbody" id="modal-body">
-      <div class="codebox" id="codebox"></div>
+
+    <div id="sidebar">
+      <div class="sidebar-tabs" id="sidebar-tabs"></div>
+      <div id="sidebar-panes"></div>
     </div>
-    <div class="mfoot" id="modal-foot">
-      <button class="btn" id="copy-btn">copy</button>
-      <button class="btn go" id="done-btn">done</button>
+
+    <div id="canvas-wrap">
+      <div id="grid-bg"></div>
+      <div id="canvas">
+        <svg id="svg-overlay"></svg>
+      </div>
     </div>
-  </div>
-</div>
 
-<div id="toast"></div>
+    <div id="hint">
+      <div class="hint-icon">🧁</div>
+      <div class="hint-txt">
+        click nodes in the sidebar to add them<br />drag nodes · connect ports ·
+        compile to js<br />scroll to zoom · drag canvas to pan
+      </div>
+    </div>
 
-<script src="/js/app.js"></script>
+    <div class="overlay" id="compile-modal">
+      <div class="modal">
+        <div class="mtop">
+          <span class="mtitle" id="modal-title">compiled output</span>
+          <button class="mclose" id="modal-close">✕</button>
+        </div>
+        <div class="mbody" id="modal-body">
+          <div class="codebox" id="codebox"></div>
+        </div>
+        <div class="mfoot" id="modal-foot">
+          <button class="btn" id="copy-btn">copy</button>
+          <button class="btn go" id="done-btn">done</button>
+        </div>
+      </div>
+    </div>
 
+    <div class="overlay" id="import-modal">
+      <div class="modal">
+        <div class="mtop">
+          <span class="mtitle" id="import-modal-title">import js</span>
+          <button class="mclose" id="import-modal-close">✕</button>
+        </div>
+        <div class="mbody" id="import-modal-body">
+          <div class="import-hint">
+            paste javascript below. it'll be parsed into nodes
+          </div>
+          <textarea
+            class="import-textarea"
+            id="import-textarea"
+            placeholder="// paste your js here&#10;let x = 5 + 3;&#10;console.log(x);"
+          ></textarea>
+          <div class="import-status" id="import-status"></div>
+        </div>
+        <div class="mfoot">
+          <button class="btn" id="import-cancel-btn">cancel</button>
+          <button class="btn go" id="import-go-btn">import →</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script src="/js/app.js"></script>
   </body>
 </html>
