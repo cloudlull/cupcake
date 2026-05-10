@@ -4138,19 +4138,52 @@ function loadPanelSizes() {
 }
 
 const cur = document.getElementById("cursor");
+
 document.addEventListener("mousemove", (e) => {
   cur.style.left = e.clientX + "px";
   cur.style.top = e.clientY + "px";
-});
-document.addEventListener("mousedown", () => cur.classList.add("big"));
-document.addEventListener("mouseup", () => cur.classList.remove("big"));
 
-window.addEventListener("beforeunload", (e) => {
-  if (Object.keys(nodes).length > 0) {
-    e.preventDefault();
-    e.returnValue = "";
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  cur.className = "";
+
+  if (!el) return;
+
+  const computed = window.getComputedStyle(el).cursor;
+
+  if (el.classList.contains("port")) {
+    cur.classList.add("state-crosshair");
+  } else if (
+    el.tagName === "INPUT" ||
+    el.tagName === "TEXTAREA" ||
+    el.isContentEditable
+  ) {
+    cur.classList.add("state-text");
+  } else if (
+    el.tagName === "BUTTON" ||
+    el.tagName === "SELECT" ||
+    el.classList.contains("palette-item") ||
+    el.classList.contains("stab") ||
+    el.classList.contains("dd-row") ||
+    el.classList.contains("search-row") ||
+    el.classList.contains("nclose") ||
+    el.classList.contains("wire")
+  ) {
+    cur.classList.add("state-pointer");
+  } else if (
+    el.classList.contains("node-head") ||
+    computed === "grab" ||
+    computed === "grabbing"
+  ) {
+    cur.classList.add("state-grab");
+  } else if (computed === "ns-resize") {
+    cur.classList.add("state-ns");
+  } else if (computed === "ew-resize") {
+    cur.classList.add("state-ew");
   }
 });
+
+document.addEventListener("mousedown", () => cur.classList.add("big"));
+document.addEventListener("mouseup", () => cur.classList.remove("big"));
 
 const CAT_FRAMES = [
   (fly) =>
