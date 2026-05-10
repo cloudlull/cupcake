@@ -2653,6 +2653,7 @@ const canvasWrap = document.getElementById("canvas-wrap");
 
 canvasWrap.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
+  if (e.shiftKey) return;
   if (
     e.target === canvasWrap ||
     e.target.id === "grid-bg" ||
@@ -2668,9 +2669,7 @@ canvasWrap.addEventListener("mousedown", (e) => {
     panOrigin = { ...pan };
     canvasWrap.style.cursor = "grabbing";
     selected = null;
-    document
-      .querySelectorAll(".node")
-      .forEach((n) => n.classList.remove("sel"));
+    document.querySelectorAll(".node").forEach((n) => n.classList.remove("sel"));
   }
 });
 
