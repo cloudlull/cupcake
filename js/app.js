@@ -4142,7 +4142,7 @@ const curDot = document.getElementById("cursor-dot");
 
 let mouseX = 0, mouseY = 0;
 let curX = 0, curY = 0;
-const ease = 0.13;
+const ease = 0.16;
 
 document.addEventListener("mousemove", (e) => {
   mouseX = e.clientX;
