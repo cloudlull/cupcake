@@ -3229,8 +3229,9 @@ document.getElementById("compile-btn").addEventListener("click", () => {
   cb.textContent = moduleMode ? wrapModule(code) : code;
   body.appendChild(cb);
   foot.style.display = "flex";
-}, delay);
-  
+  }, delay);
+});
+
 document
   .getElementById("modal-close")
   .addEventListener("click", () =>
