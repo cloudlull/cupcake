@@ -1886,6 +1886,7 @@ async function refreshIndicators() {
 }
 
 async function boot() {
+  startLoader();
   buildSidebar();
   buildSaveLoad();
   await initDB();
@@ -2522,6 +2523,8 @@ function runCode() {
   const panel = document.getElementById("console-panel");
   const output = document.getElementById("run-output");
   output.innerHTML = "";
+  document.getElementById("run-header-label").textContent = "running...";
+  document.getElementById("run-dot").classList.remove("err");
   panel.classList.add("open");
   document.getElementById("canvas-wrap").classList.add("console-open");
   document.getElementById("sidebar").classList.add("console-open");
@@ -2533,18 +2536,6 @@ function runCode() {
     appendConsoleEntry(output, "error", ["compile error: " + e.message], 0);
     return;
   }
-
-  const header = document.createElement("div");
-  header.className = "console-run-header";
-  const dot = document.createElement("span");
-  dot.className = "console-run-dot";
-  dot.id = "run-dot";
-  const label = document.createElement("span");
-  label.textContent = "running...";
-  label.id = "run-header-label";
-  header.appendChild(dot);
-  header.appendChild(label);
-  output.appendChild(header);
 
   const start = performance.now();
   const entries = [];
@@ -2626,6 +2617,121 @@ document.getElementById("console-close-btn").addEventListener("click", () => {
   document.getElementById("console-panel").classList.remove("open");
   document.getElementById("canvas-wrap").classList.remove("console-open");
   document.getElementById("sidebar").classList.remove("console-open");
+});
+
+function startLoader() {
+  const bar = document.getElementById("loader-bar");
+  const loader = document.getElementById("loader");
+  const dur = 1000 + Math.random() * 4000;
+  bar.style.transition = `width ${dur}ms linear`;
+  requestAnimationFrame(() => { bar.style.width = "100%"; });
+  setTimeout(() => {
+    loader.classList.add("done");
+    setTimeout(() => loader.remove(), 450);
+  }, dur);
+}
+
+function showCtx(x, y, title, rows) {
+  const menu = document.getElementById("ctx-menu");
+  const header = document.getElementById("ctx-header");
+  const rowsEl = document.getElementById("ctx-rows");
+  header.textContent = title;
+  rowsEl.innerHTML = "";
+  rows.forEach(([k, v]) => {
+    const row = document.createElement("div");
+    row.className = "ctx-row";
+    row.innerHTML = `<span class="ctx-row-key">${k}</span><span class="ctx-row-val">${v}</span>`;
+    rowsEl.appendChild(row);
+  });
+  menu.classList.add("open");
+  const mw = 220, mh = menu.offsetHeight || 200;
+  menu.style.left = (x + mw > window.innerWidth ? x - mw : x) + "px";
+  menu.style.top = (y + mh > window.innerHeight ? y - mh : y) + "px";
+}
+
+function hideCtx() {
+  document.getElementById("ctx-menu").classList.remove("open");
+}
+
+document.addEventListener("click", hideCtx);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideCtx(); });
+
+document.getElementById("canvas-wrap").addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  const target = e.target;
+
+  if (target.classList.contains("port")) {
+    const nid = target.dataset.node;
+    const pid = target.dataset.port;
+    const dir = target.dataset.dir;
+    const n = nodes[nid];
+    const isLive = target.classList.contains("live");
+    showCtx(e.clientX, e.clientY, "port", [
+      ["node", n?.type || "?"],
+      ["port id", pid],
+      ["direction", dir],
+      ["connected", isLive ? "yes" : "no"]
+    ]);
+    return;
+  }
+
+  if (target.classList.contains("wire")) {
+    const cid = target.dataset.cid;
+    const c = conns[cid];
+    if (c) {
+      showCtx(e.clientX, e.clientY, "wire", [
+        ["from", nodes[c.fn]?.type || c.fn],
+        ["from port", c.fp],
+        ["to", nodes[c.tn]?.type || c.tn],
+        ["to port", c.tp]
+      ]);
+    }
+    return;
+  }
+
+  const nodeEl = target.closest(".node");
+  if (nodeEl) {
+    const nid = nodeEl.id.replace("node-", "");
+    const n = nodes[nid];
+    const def = TYPES[n?.type];
+    const rows = [
+      ["type", n?.type || "?"],
+      ["category", def?.cat || "?"],
+      ["id", nid],
+      ["position", `${Math.round(n?.x)}, ${Math.round(n?.y)}`],
+      ["inputs", def?.ins?.length ?? 0],
+      ["outputs", def?.outs?.length ?? 0],
+    ];
+    Object.entries(n?.f || {}).forEach(([k, v]) => rows.push([k, String(v).slice(0, 30) || '""']));
+    showCtx(e.clientX, e.clientY, def?.label || "node", rows);
+    return;
+  }
+
+  showCtx(e.clientX, e.clientY, "canvas", [
+    ["nodes", Object.keys(nodes).length],
+    ["wires", Object.keys(conns).length],
+    ["zoom", Math.round(zoom * 100) + "%"],
+    ["pan x", Math.round(-pan.x / zoom)],
+    ["pan y", Math.round(-pan.y / zoom)]
+  ]);
+});
+
+document.getElementById("sidebar").addEventListener("contextmenu", (e) => {
+  const item = e.target.closest(".palette-item");
+  if (!item) return;
+  e.preventDefault();
+  const label = item.querySelector(".palette-dot + *")?.textContent || "";
+  const type = Object.entries(TYPES).find(([, d]) => d.label === label.trim())?.[0];
+  const def = type ? TYPES[type] : null;
+  if (!def) return;
+  showCtx(e.clientX, e.clientY, def.label, [
+    ["type", type],
+    ["category", def.cat],
+    ["inputs", def.ins.length],
+    ["outputs", def.outs.length],
+    ["expr", def.expr ? "yes" : "no"],
+    ["stmt", def.stmt ? "yes" : "no"]
+  ]);
 });
 
 boot();
