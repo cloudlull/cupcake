@@ -4306,11 +4306,11 @@ function renderFrame(id) {
   document.getElementById("canvas").insertBefore(el, document.getElementById("canvas").firstChild);
 }
 
-// secret: alt + drag to make a frame
+// secret: shift + drag to make a frame
 let drawingFrame = false, frameDrawStart = null, framePreview = null;
 
 canvasWrap.addEventListener("mousedown", e => {
-  if (e.button !== 0 || !e.altKey) return;
+  if (e.button !== 0 || !e.shiftKey) return;
   if (e.target !== canvasWrap && e.target.id !== "grid-bg" && e.target.id !== "canvas" && e.target.id !== "svg-overlay") return;
   e.preventDefault();
   e.stopPropagation();
