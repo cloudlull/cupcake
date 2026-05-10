@@ -1150,6 +1150,972 @@ const TYPES = {
     stmt: true,
     gen: (n) => n.f.code || "",
   },
+  typeof_in_stmt: {
+    label: "typeof (stmt)",
+    cat: "convert",
+    col: "var(--col-conv)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `typeof ${ge(n.id, "val")}`,
+  },
+  instanceof: {
+    label: "instanceof",
+    cat: "logic",
+    col: "var(--col-logic)",
+    fields: [{ id: "cls", label: "class", kind: "text", def: "Array" }],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "val")} instanceof ${n.f.cls || "Array"})`,
+  },
+  in_op: {
+    label: "in",
+    cat: "logic",
+    col: "var(--col-logic)",
+    fields: [{ id: "key", label: "key", kind: "text", def: "prop" }],
+    ins: [{ id: "obj", label: "object" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `("${n.f.key}" in ${ge(n.id, "obj")})`,
+  },
+  bitand: {
+    label: "bitwise &",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "a", label: "a" },
+      { id: "b", label: "b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "a")} & ${ge(n.id, "b")})`,
+  },
+  bitor: {
+    label: "bitwise |",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "a", label: "a" },
+      { id: "b", label: "b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "a")} | ${ge(n.id, "b")})`,
+  },
+  bitxor: {
+    label: "bitwise ^",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "a", label: "a" },
+      { id: "b", label: "b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "a")} ^ ${ge(n.id, "b")})`,
+  },
+  bitnot: {
+    label: "bitwise ~",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(~${ge(n.id, "a")})`,
+  },
+  lshift: {
+    label: "left shift",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "a", label: "a" },
+      { id: "b", label: "b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "a")} << ${ge(n.id, "b")})`,
+  },
+  rshift: {
+    label: "right shift",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "a", label: "a" },
+      { id: "b", label: "b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "a")} >> ${ge(n.id, "b")})`,
+  },
+  urshift: {
+    label: ">>> shift",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "a", label: "a" },
+      { id: "b", label: "b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "a")} >>> ${ge(n.id, "b")})`,
+  },
+  sqrt: {
+    label: "sqrt",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.sqrt(${ge(n.id, "a")})`,
+  },
+  log_math: {
+    label: "log",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.log(${ge(n.id, "a")})`,
+  },
+  sin: {
+    label: "sin",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "radians" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.sin(${ge(n.id, "a")})`,
+  },
+  cos: {
+    label: "cos",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "radians" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.cos(${ge(n.id, "a")})`,
+  },
+  tan: {
+    label: "tan",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "radians" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.tan(${ge(n.id, "a")})`,
+  },
+  pi: {
+    label: "Math.PI",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: () => `Math.PI`,
+  },
+  infinity: {
+    label: "Infinity",
+    cat: "values",
+    col: "var(--col-val)",
+    fields: [],
+    ins: [],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: () => `Infinity`,
+  },
+  nan_val: {
+    label: "NaN",
+    cat: "values",
+    col: "var(--col-val)",
+    fields: [],
+    ins: [],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: () => `NaN`,
+  },
+  isnan: {
+    label: "isNaN",
+    cat: "convert",
+    col: "var(--col-conv)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `isNaN(${ge(n.id, "val")})`,
+  },
+  isfinite: {
+    label: "isFinite",
+    cat: "convert",
+    col: "var(--col-conv)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `isFinite(${ge(n.id, "val")})`,
+  },
+  number_cast: {
+    label: "Number()",
+    cat: "convert",
+    col: "var(--col-conv)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Number(${ge(n.id, "val")})`,
+  },
+  bool_cast: {
+    label: "Boolean()",
+    cat: "convert",
+    col: "var(--col-conv)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Boolean(${ge(n.id, "val")})`,
+  },
+  arr_includes: {
+    label: "includes",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "val", label: "value" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.includes(${ge(n.id, "val")})`,
+  },
+  arr_indexof: {
+    label: "indexOf",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "val", label: "value" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.indexOf(${ge(n.id, "val")})`,
+  },
+  arr_flat: {
+    label: "flat",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [{ id: "depth", label: "depth", kind: "number", def: "1" }],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.flat(${n.f.depth || 1})`,
+  },
+  arr_flatmap: {
+    label: "flatMap",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [{ id: "fn", label: "callback", kind: "text", def: "x => x" }],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.flatMap(${n.f.fn || "x => x"})`,
+  },
+  arr_every: {
+    label: "every",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [{ id: "fn", label: "predicate", kind: "text", def: "x => x" }],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.every(${n.f.fn || "x => x"})`,
+  },
+  arr_some: {
+    label: "some",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [{ id: "fn", label: "predicate", kind: "text", def: "x => x" }],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.some(${n.f.fn || "x => x"})`,
+  },
+  arr_sort: {
+    label: "sort",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [{ id: "fn", label: "comparator", kind: "text", def: "" }],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) =>
+      n.f.fn
+        ? `${ge(n.id, "arr")}.sort(${n.f.fn})`
+        : `${ge(n.id, "arr")}.sort()`,
+  },
+  arr_reverse: {
+    label: "reverse",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.reverse()`,
+  },
+  arr_concat: {
+    label: "concat",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [
+      { id: "a", label: "arr a" },
+      { id: "b", label: "arr b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "a")}.concat(${ge(n.id, "b")})`,
+  },
+  arr_fill: {
+    label: "fill",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "val", label: "value" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.fill(${ge(n.id, "val")})`,
+  },
+  arr_from: {
+    label: "Array.from",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [{ id: "val", label: "iterable" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Array.from(${ge(n.id, "val")})`,
+  },
+  arr_isarray: {
+    label: "Array.isArray",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Array.isArray(${ge(n.id, "val")})`,
+  },
+  obj_assign: {
+    label: "Object.assign",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [],
+    ins: [
+      { id: "a", label: "target" },
+      { id: "b", label: "source" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Object.assign(${ge(n.id, "a")}, ${ge(n.id, "b")})`,
+  },
+  obj_entries: {
+    label: "entries",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [],
+    ins: [{ id: "obj", label: "object" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Object.entries(${ge(n.id, "obj")})`,
+  },
+  obj_freeze: {
+    label: "Object.freeze",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [],
+    ins: [{ id: "obj", label: "object" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Object.freeze(${ge(n.id, "obj")})`,
+  },
+  obj_has: {
+    label: "hasOwn",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [{ id: "key", label: "key", kind: "text", def: "prop" }],
+    ins: [{ id: "obj", label: "object" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Object.hasOwn(${ge(n.id, "obj")}, "${n.f.key}")`,
+  },
+  destructure: {
+    label: "destructure",
+    cat: "variables",
+    col: "var(--col-var)",
+    fields: [
+      { id: "keys", label: "keys (comma sep)", kind: "text", def: "a, b" },
+      {
+        id: "kind",
+        label: "kind",
+        kind: "select",
+        opts: ["const", "let", "var"],
+        def: "const",
+      },
+    ],
+    ins: [{ id: "obj", label: "object" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `${n.f.kind || "const"} { ${n.f.keys || "a, b"} } = ${ge(n.id, "obj")};`,
+  },
+  arr_destructure: {
+    label: "arr destructure",
+    cat: "variables",
+    col: "var(--col-var)",
+    fields: [
+      { id: "vars", label: "vars (comma sep)", kind: "text", def: "a, b" },
+      {
+        id: "kind",
+        label: "kind",
+        kind: "select",
+        opts: ["const", "let", "var"],
+        def: "const",
+      },
+    ],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `${n.f.kind || "const"} [ ${n.f.vars || "a, b"} ] = ${ge(n.id, "arr")};`,
+  },
+  optional_chain: {
+    label: "optional ?.",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [{ id: "path", label: "path", kind: "text", def: "prop" }],
+    ins: [{ id: "obj", label: "object" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "obj")}?.${n.f.path || "prop"}`,
+  },
+  new_set: {
+    label: "new Set",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [{ id: "arr", label: "iterable" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `new Set(${ge(n.id, "arr")})`,
+  },
+  new_map: {
+    label: "new Map",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [],
+    ins: [{ id: "arr", label: "entries" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `new Map(${ge(n.id, "arr")})`,
+  },
+  set_interval: {
+    label: "setInterval",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [{ id: "fn", label: "callback", kind: "text", def: "() => {}" }],
+    ins: [{ id: "delay", label: "interval ms" }],
+    outs: [{ id: "out", label: "id" }],
+    expr: true,
+    gen: (n, ge) =>
+      `setInterval(${n.f.fn || "() => {}"}, ${ge(n.id, "delay")})`,
+  },
+  clear_timeout: {
+    label: "clearTimeout",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [],
+    ins: [{ id: "id", label: "timer id" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => `clearTimeout(${ge(n.id, "id")});`,
+  },
+  clear_interval: {
+    label: "clearInterval",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [],
+    ins: [{ id: "id", label: "timer id" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => `clearInterval(${ge(n.id, "id")});`,
+  },
+  promise_all: {
+    label: "Promise.all",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [],
+    ins: [{ id: "arr", label: "promises" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Promise.all(${ge(n.id, "arr")})`,
+  },
+  promise_race: {
+    label: "Promise.race",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [],
+    ins: [{ id: "arr", label: "promises" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Promise.race(${ge(n.id, "arr")})`,
+  },
+  promise_resolve: {
+    label: "Promise.resolve",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Promise.resolve(${ge(n.id, "val")})`,
+  },
+  async_fn: {
+    label: "async fn",
+    cat: "functions",
+    col: "var(--col-fn)",
+    fields: [
+      { id: "name", label: "name", kind: "text", def: "myFn" },
+      { id: "params", label: "params", kind: "text", def: "" },
+    ],
+    ins: [{ id: "body", label: "return value" }],
+    outs: [{ id: "ref", label: "ref" }],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `async function ${n.f.name || "myFn"}(${n.f.params || ""}) {\n  return ${ge(n.id, "body")};\n}`,
+    ref: (n) => n.f.name || "myFn",
+  },
+  iife: {
+    label: "iife",
+    cat: "functions",
+    col: "var(--col-fn)",
+    fields: [{ id: "body", label: "body", kind: "text", def: "" }],
+    ins: [],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n) => `(function() {\n  ${n.f.body || ""}\n})();`,
+  },
+  spread_args: {
+    label: "...spread args",
+    cat: "functions",
+    col: "var(--col-fn)",
+    fields: [],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `...${ge(n.id, "arr")}`,
+  },
+  str_charat: {
+    label: "charAt",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "idx", label: "index" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.charAt(${ge(n.id, "idx")})`,
+  },
+  str_indexof: {
+    label: "indexOf",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "sub", label: "substring" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.indexOf(${ge(n.id, "sub")})`,
+  },
+  str_startswith: {
+    label: "startsWith",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "sub", label: "prefix" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.startsWith(${ge(n.id, "sub")})`,
+  },
+  str_endswith: {
+    label: "endsWith",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "sub", label: "suffix" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.endsWith(${ge(n.id, "sub")})`,
+  },
+  str_padstart: {
+    label: "padStart",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [
+      { id: "len", label: "length", kind: "number", def: "2" },
+      { id: "ch", label: "pad char", kind: "text", def: "0" },
+    ],
+    ins: [{ id: "str", label: "string" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "str")}.padStart(${n.f.len || 2}, "${n.f.ch || "0"}")`,
+  },
+  str_padend: {
+    label: "padEnd",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [
+      { id: "len", label: "length", kind: "number", def: "2" },
+      { id: "ch", label: "pad char", kind: "text", def: " " },
+    ],
+    ins: [{ id: "str", label: "string" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "str")}.padEnd(${n.f.len || 2}, "${n.f.ch || " "}")`,
+  },
+  str_repeat: {
+    label: "repeat",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "n", label: "count" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.repeat(${ge(n.id, "n")})`,
+  },
+  str_match: {
+    label: "match",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [{ id: "re", label: "regex", kind: "text", def: "/pattern/g" }],
+    ins: [{ id: "str", label: "string" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.match(${n.f.re || "/pattern/g"})`,
+  },
+  str_replaceall: {
+    label: "replaceAll",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "from", label: "from" },
+      { id: "to", label: "to" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "str")}.replaceAll(${ge(n.id, "from")}, ${ge(n.id, "to")})`,
+  },
+  query_all: {
+    label: "querySelectorAll",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [{ id: "sel", label: "selector", kind: "text", def: ".item" }],
+    ins: [],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n) => `document.querySelectorAll("${n.f.sel || ".item"}")`,
+  },
+  get_attr: {
+    label: "getAttribute",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [{ id: "attr", label: "attribute", kind: "text", def: "class" }],
+    ins: [{ id: "el", label: "element" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "el")}.getAttribute("${n.f.attr || "class"}")`,
+  },
+  remove_el: {
+    label: "remove",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [],
+    ins: [{ id: "el", label: "element" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => `${ge(n.id, "el")}.remove();`,
+  },
+  class_add: {
+    label: "classList.add",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [{ id: "cls", label: "class", kind: "text", def: "active" }],
+    ins: [{ id: "el", label: "element" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "el")}.classList.add("${n.f.cls || "active"}");`,
+  },
+  class_remove: {
+    label: "classList.remove",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [{ id: "cls", label: "class", kind: "text", def: "active" }],
+    ins: [{ id: "el", label: "element" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "el")}.classList.remove("${n.f.cls || "active"}");`,
+  },
+  class_toggle: {
+    label: "classList.toggle",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [{ id: "cls", label: "class", kind: "text", def: "active" }],
+    ins: [{ id: "el", label: "element" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "el")}.classList.toggle("${n.f.cls || "active"}");`,
+  },
+  set_style: {
+    label: "set style",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [{ id: "prop", label: "property", kind: "text", def: "color" }],
+    ins: [
+      { id: "el", label: "element" },
+      { id: "val", label: "value" },
+    ],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "el")}.style["${n.f.prop || "color"}"] = ${ge(n.id, "val")};`,
+  },
+  inner_html: {
+    label: "innerHTML",
+    cat: "dom",
+    col: "var(--col-dom)",
+    fields: [],
+    ins: [
+      { id: "el", label: "element" },
+      { id: "html", label: "html string" },
+    ],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => `${ge(n.id, "el")}.innerHTML = ${ge(n.id, "html")};`,
+  },
+  local_storage_get: {
+    label: "localStorage.get",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [{ id: "key", label: "key", kind: "text", def: "myKey" }],
+    ins: [],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n) => `localStorage.getItem("${n.f.key || "myKey"}")`,
+  },
+  local_storage_set: {
+    label: "localStorage.set",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [{ id: "key", label: "key", kind: "text", def: "myKey" }],
+    ins: [{ id: "val", label: "value" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `localStorage.setItem("${n.f.key || "myKey"}", ${ge(n.id, "val")});`,
+  },
+  console_table: {
+    label: "console.table",
+    cat: "output",
+    col: "var(--col-out)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => `console.table(${ge(n.id, "val")});`,
+  },
+  console_warn: {
+    label: "console.warn",
+    cat: "output",
+    col: "var(--col-out)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => `console.warn(${ge(n.id, "val")});`,
+  },
+  throw_node: {
+    label: "throw",
+    cat: "control",
+    col: "var(--col-flow)",
+    fields: [{ id: "msg", label: "message", kind: "text", def: "error" }],
+    ins: [{ id: "val", label: "value (optional)" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => {
+      const c = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "val",
+      );
+      return c
+        ? `throw ${ge(n.id, "val")};`
+        : `throw new Error("${n.f.msg || "error"}");`;
+    },
+  },
+  break_node: {
+    label: "break",
+    cat: "control",
+    col: "var(--col-flow)",
+    fields: [],
+    ins: [],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: () => `break;`,
+  },
+  continue_node: {
+    label: "continue",
+    cat: "control",
+    col: "var(--col-flow)",
+    fields: [],
+    ins: [],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: () => `continue;`,
+  },
+  for_of: {
+    label: "for...of",
+    cat: "control",
+    col: "var(--col-flow)",
+    fields: [
+      { id: "item", label: "item var", kind: "text", def: "item" },
+      { id: "body", label: "body", kind: "text", def: "console.log(item)" },
+    ],
+    ins: [{ id: "iter", label: "iterable" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `for (const ${n.f.item || "item"} of ${ge(n.id, "iter")}) {\n  ${n.f.body || ""}\n}`,
+  },
+  for_in: {
+    label: "for...in",
+    cat: "control",
+    col: "var(--col-flow)",
+    fields: [
+      { id: "key", label: "key var", kind: "text", def: "key" },
+      { id: "body", label: "body", kind: "text", def: "console.log(key)" },
+    ],
+    ins: [{ id: "obj", label: "object" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) =>
+      `for (const ${n.f.key || "key"} in ${ge(n.id, "obj")}) {\n  ${n.f.body || ""}\n}`,
+  },
+  do_while: {
+    label: "do...while",
+    cat: "control",
+    col: "var(--col-flow)",
+    fields: [{ id: "body", label: "body", kind: "text", def: "" }],
+    ins: [{ id: "cond", label: "condition" }],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => `do {\n  ${n.f.body || ""}\n} while (${ge(n.id, "cond")});`,
+  },
+  label_stmt: {
+    label: "labeled stmt",
+    cat: "control",
+    col: "var(--col-flow)",
+    fields: [
+      { id: "lbl", label: "label", kind: "text", def: "outer" },
+      { id: "body", label: "body", kind: "text", def: "" },
+    ],
+    ins: [],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n) => `${n.f.lbl || "outer"}: {\n  ${n.f.body || ""}\n}`,
+  },
+  subgraph: {
+    label: "subgraph / macro",
+    cat: "functions",
+    col: "var(--col-fn)",
+    fields: [
+      { id: "name", label: "name", kind: "text", def: "macro" },
+      { id: "code", label: "body (raw js)", kind: "text", def: "" },
+    ],
+    ins: [
+      { id: "a0", label: "in 1" },
+      { id: "a1", label: "in 2" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => {
+      const c0 = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "a0",
+      );
+      const c1 = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "a1",
+      );
+      return `(function ${n.f.name || "macro"}(${c0 ? "__a0" : ""}, ${c1 ? "__a1" : ""}) {\n  ${n.f.code || ""}\n})(${c0 ? ge(n.id, "a0") : ""}${c0 && c1 ? ", " : ""}${c1 ? ge(n.id, "a1") : ""})`;
+    },
+  },
 };
 
 const TABS = [
@@ -1177,12 +2143,19 @@ let zoom = 1;
 let dragNode = null,
   dragStart = null,
   dragNodeOrigin = null;
+let dragMultiOrigins = null;
 let panning = false,
   panStart = null,
   panOrigin = null;
 let pending = null;
 let selected = null;
 let db = null;
+let history = [],
+  future = [],
+  multiSel = new Set(),
+  clipboard = [];
+let searchQ = "",
+  searchVisible = false;
 
 function uid() {
   return "n" + nid++;
@@ -1243,6 +2216,22 @@ function bezier(x1, y1, x2, y2) {
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
+function getWireExpr(nodeId, portId) {
+  const src = nodes[nodeId];
+  const def = TYPES[src?.type];
+  if (!def) return "?";
+  if (def.ref) return def.ref(src);
+  if (def.expr) {
+    function ge(nid, pid) {
+      const c = Object.values(conns).find((c) => c.tn === nid && c.tp === pid);
+      if (!c) return "…";
+      return getWireExpr(c.fn, c.fp);
+    }
+    return def.gen(src, ge);
+  }
+  return src.type;
+}
+
 function drawWires() {
   const svg = document.getElementById("svg-overlay");
   Array.from(svg.querySelectorAll(".wire:not(.temp)")).forEach((e) =>
@@ -1263,6 +2252,37 @@ function drawWires() {
       removeConn(c.id);
     });
     svg.appendChild(path);
+    const mid = { x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2 };
+    const badge = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    badge.classList.add("wire-badge");
+    badge.dataset.cid = c.id;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("rx", "4");
+    rect.setAttribute("height", "14");
+    rect.setAttribute("fill", "#161616");
+    rect.setAttribute("stroke", col || "#303030");
+    rect.setAttribute("stroke-width", "1");
+    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    txt.setAttribute("font-family", "DM Mono, monospace");
+    txt.setAttribute("font-size", "8");
+    txt.setAttribute("fill", "#a89880");
+    txt.setAttribute("dominant-baseline", "middle");
+    txt.setAttribute("text-anchor", "middle");
+    txt.setAttribute("y", String(mid.y));
+    try {
+      const expr = getWireExpr(c.fn, c.fp);
+      txt.textContent = expr.length > 18 ? expr.slice(0, 16) + "…" : expr;
+    } catch {
+      txt.textContent = "";
+    }
+    const tw = Math.max(30, txt.textContent.length * 5.5 + 10);
+    rect.setAttribute("width", String(tw));
+    rect.setAttribute("x", String(mid.x - tw / 2));
+    rect.setAttribute("y", String(mid.y - 7));
+    txt.setAttribute("x", String(mid.x));
+    badge.appendChild(rect);
+    badge.appendChild(txt);
+    svg.appendChild(badge);
   });
   refreshPortStates();
 }
@@ -1282,6 +2302,7 @@ function removeConn(id) {
 
 function addConn(fn, fp, tn, tp) {
   if (fn === tn) return;
+  snapshot();
   const existing = Object.values(conns).find((c) => c.tn === tn && c.tp === tp);
   if (existing) delete conns[existing.id];
   const id = cuid();
@@ -1311,6 +2332,7 @@ function spawnNode(type) {
 function makeNode(type, x, y) {
   const def = TYPES[type];
   if (!def) return;
+  snapshot();
   const id = uid();
   const f = {};
   def.fields.forEach((fld) => (f[fld.id] = fld.def || ""));
@@ -1322,6 +2344,7 @@ function makeNode(type, x, y) {
 }
 
 function deleteNode(id) {
+  snapshot();
   Object.keys(conns).forEach((cid) => {
     if (conns[cid].fn === id || conns[cid].tn === id) delete conns[cid];
   });
@@ -1331,10 +2354,46 @@ function deleteNode(id) {
   showHint();
 }
 
+function snapshot() {
+  history.push(JSON.stringify({ nodes, conns, nid }));
+  if (history.length > 60) history.shift();
+  future = [];
+}
+
+function undo() {
+  if (!history.length) return toast("nothing to undo");
+  future.push(JSON.stringify({ nodes, conns, nid }));
+  const s = JSON.parse(history.pop());
+  nodes = s.nodes;
+  conns = s.conns;
+  nid = s.nid;
+  document.querySelectorAll(".node").forEach((e) => e.remove());
+  Object.keys(nodes).forEach((id) => renderNode(id));
+  drawWires();
+  showHint();
+  toast("undo");
+}
+
+function redo() {
+  if (!future.length) return toast("nothing to redo");
+  history.push(JSON.stringify({ nodes, conns, nid }));
+  const s = JSON.parse(future.pop());
+  nodes = s.nodes;
+  conns = s.conns;
+  nid = s.nid;
+  document.querySelectorAll(".node").forEach((e) => e.remove());
+  Object.keys(nodes).forEach((id) => renderNode(id));
+  drawWires();
+  showHint();
+  toast("redo");
+}
+
 function nukeAll() {
+  snapshot();
   nodes = {};
   conns = {};
   document.querySelectorAll(".node").forEach((e) => e.remove());
+  multiSel.clear();
   drawWires();
   showHint();
 }
@@ -1470,19 +2529,92 @@ function renderNode(id) {
   head.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     e.stopPropagation();
-    selectNode(id);
-    dragNode = id;
-    dragStart = { x: e.clientX, y: e.clientY };
-    dragNodeOrigin = { x: n.x, y: n.y };
+    selectNode(id, e.shiftKey);
+    if (!e.shiftKey) {
+      dragNode = id;
+      dragStart = { x: e.clientX, y: e.clientY };
+      dragNodeOrigin = { x: n.x, y: n.y };
+      if (multiSel.has(id)) {
+        dragMultiOrigins = {};
+        multiSel.forEach(
+          (mid) =>
+            (dragMultiOrigins[mid] = { x: nodes[mid].x, y: nodes[mid].y }),
+        );
+      }
+    }
   });
-
-  wrap.addEventListener("mousedown", () => selectNode(id));
+  wrap.addEventListener("mousedown", (e) => selectNode(id, e.shiftKey));
 }
 
-function selectNode(id) {
+function selectNode(id, shift) {
+  if (shift) {
+    toggleMultiSel(id);
+    return;
+  }
   selected = id;
-  document.querySelectorAll(".node").forEach((n) => n.classList.remove("sel"));
+  multiSel.clear();
+  document.querySelectorAll(".node").forEach((n) => {
+    n.classList.remove("sel");
+    n.classList.remove("multi-sel");
+  });
   document.getElementById("node-" + id)?.classList.add("sel");
+}
+
+function toggleMultiSel(id) {
+  if (multiSel.has(id)) multiSel.delete(id);
+  else multiSel.add(id);
+  refreshMultiSel();
+}
+
+function refreshMultiSel() {
+  document.querySelectorAll(".node").forEach((el) => {
+    const id = el.id.replace("node-", "");
+    el.classList.toggle("multi-sel", multiSel.has(id));
+  });
+}
+
+function copySelected() {
+  const ids = multiSel.size ? [...multiSel] : selected ? [selected] : [];
+  if (!ids.length) return toast("nothing selected");
+  clipboard = ids.map((id) => ({
+    node: JSON.parse(JSON.stringify(nodes[id])),
+    id,
+  }));
+  const connsCopied = Object.values(conns).filter(
+    (c) => ids.includes(c.fn) && ids.includes(c.tn),
+  );
+  clipboard._conns = connsCopied;
+  toast(`copied ${ids.length} node${ids.length > 1 ? "s" : ""}`);
+}
+
+function pasteSelected() {
+  if (!clipboard.length) return toast("clipboard empty");
+  snapshot();
+  const idMap = {};
+  clipboard.forEach(({ node }, i) => {
+    const newId = uid();
+    idMap[node.id] = newId;
+    nodes[newId] = {
+      ...JSON.parse(JSON.stringify(node)),
+      id: newId,
+      x: node.x + 30,
+      y: node.y + 30,
+    };
+    renderNode(newId);
+  });
+  (clipboard._conns || []).forEach((c) => {
+    const fn = idMap[c.fn],
+      tn = idMap[c.tn];
+    if (fn && tn) {
+      const id = cuid();
+      conns[id] = { id, fn, fp: c.fp, tn, tp: c.tp };
+    }
+  });
+  multiSel.clear();
+  Object.values(idMap).forEach((id) => multiSel.add(id));
+  refreshMultiSel();
+  drawWires();
+  toast(`pasted ${clipboard.length} node${clipboard.length > 1 ? "s" : ""}`);
 }
 
 const canvasWrap = document.getElementById("canvas-wrap");
@@ -1514,12 +2646,27 @@ document.addEventListener("mousemove", (e) => {
   if (dragNode) {
     const n = nodes[dragNode];
     if (!n) return;
-    n.x = dragNodeOrigin.x + (e.clientX - dragStart.x) / zoom;
-    n.y = dragNodeOrigin.y + (e.clientY - dragStart.y) / zoom;
-    const el = document.getElementById("node-" + dragNode);
-    if (el) {
-      el.style.left = n.x + "px";
-      el.style.top = n.y + "px";
+    const dx = (e.clientX - dragStart.x) / zoom;
+    const dy = (e.clientY - dragStart.y) / zoom;
+    if (multiSel.has(dragNode) && dragMultiOrigins) {
+      multiSel.forEach((mid) => {
+        if (!nodes[mid] || !dragMultiOrigins[mid]) return;
+        nodes[mid].x = dragMultiOrigins[mid].x + dx;
+        nodes[mid].y = dragMultiOrigins[mid].y + dy;
+        const el = document.getElementById("node-" + mid);
+        if (el) {
+          el.style.left = nodes[mid].x + "px";
+          el.style.top = nodes[mid].y + "px";
+        }
+      });
+    } else {
+      n.x = dragNodeOrigin.x + dx;
+      n.y = dragNodeOrigin.y + dy;
+      const el = document.getElementById("node-" + dragNode);
+      if (el) {
+        el.style.left = n.x + "px";
+        el.style.top = n.y + "px";
+      }
     }
     drawWires();
     return;
@@ -1548,6 +2695,7 @@ document.addEventListener("mousemove", (e) => {
 
 document.addEventListener("mouseup", () => {
   dragNode = null;
+  dragMultiOrigins = null;
   if (panning) {
     panning = false;
     canvasWrap.style.cursor = "default";
@@ -1573,14 +2721,61 @@ canvasWrap.addEventListener(
 );
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") clearPending();
-  if (
-    (e.key === "Delete" || e.key === "Backspace") &&
-    selected &&
-    !["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)
-  ) {
-    deleteNode(selected);
-    selected = null;
+  const tag = e.target.tagName;
+  const typing = ["INPUT", "SELECT", "TEXTAREA"].includes(tag);
+  if (e.key === "Escape") {
+    clearPending();
+    hideSearch();
+  }
+  if (!typing && (e.key === "Delete" || e.key === "Backspace")) {
+    if (multiSel.size) {
+      snapshot();
+      [...multiSel].forEach((id) => {
+        Object.keys(conns).forEach((cid) => {
+          if (conns[cid].fn === id || conns[cid].tn === id) delete conns[cid];
+        });
+        delete nodes[id];
+        document.getElementById("node-" + id)?.remove();
+      });
+      multiSel.clear();
+      drawWires();
+      showHint();
+    } else if (selected) {
+      deleteNode(selected);
+      selected = null;
+    }
+  }
+  if ((e.metaKey || e.ctrlKey) && !typing) {
+    if (e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    }
+    if (e.key === "z" && e.shiftKey) {
+      e.preventDefault();
+      redo();
+    }
+    if (e.key === "y") {
+      e.preventDefault();
+      redo();
+    }
+    if (e.key === "c") {
+      e.preventDefault();
+      copySelected();
+    }
+    if (e.key === "v") {
+      e.preventDefault();
+      pasteSelected();
+    }
+    if (e.key === "a") {
+      e.preventDefault();
+      multiSel.clear();
+      Object.keys(nodes).forEach((id) => multiSel.add(id));
+      refreshMultiSel();
+    }
+    if (e.key === "f") {
+      e.preventDefault();
+      toggleSearch();
+    }
   }
 });
 
@@ -1656,6 +2851,8 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest(".dd")) closeAllDD();
 });
 
+document.getElementById("search-btn").addEventListener("click", toggleSearch);
+
 let activeTab = TABS[0].id;
 
 function buildSidebar() {
@@ -1688,6 +2885,49 @@ function buildSidebar() {
     panesContainer.appendChild(pane);
   });
 }
+
+function toggleSearch() {
+  searchVisible = !searchVisible;
+  const bar = document.getElementById("search-bar");
+  if (searchVisible) {
+    bar.classList.add("open");
+    document.getElementById("search-input").focus();
+  } else hideSearch();
+}
+
+function hideSearch() {
+  searchVisible = false;
+  document.getElementById("search-bar").classList.remove("open");
+  document.getElementById("search-results").innerHTML = "";
+}
+
+document.getElementById("search-input").addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const res = document.getElementById("search-results");
+  res.innerHTML = "";
+  if (!q) return;
+  const matches = Object.entries(TYPES)
+    .filter(([, d]) => d.label.includes(q) || d.cat.includes(q))
+    .slice(0, 10);
+  matches.forEach(([type, def]) => {
+    const row = document.createElement("div");
+    row.className = "search-row";
+    row.innerHTML = `<span class="search-dot" style="background:${def.col}"></span><span class="search-label">${def.label}</span><span class="search-cat">${def.cat}</span>`;
+    row.addEventListener("click", () => {
+      spawnNode(type);
+      hideSearch();
+    });
+    res.appendChild(row);
+  });
+});
+
+document.getElementById("search-input").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") hideSearch();
+  if (e.key === "Enter") {
+    const first = document.querySelector(".search-row");
+    if (first) first.click();
+  }
+});
 
 function switchTab(tabId) {
   activeTab = tabId;
