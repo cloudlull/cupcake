@@ -972,3 +972,34 @@ body {
   white-space: nowrap;
   max-width: 120px;
 }
+
+#cat-corner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 220px;
+  height: 260px;
+  background: var(--s1);
+  border-top: 1px solid var(--b1);
+  border-right: 1px solid var(--b1);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 91;
+  overflow: hidden;
+}
+#cat-corner.open {
+  display: flex;
+}
+#cat-ascii {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--cream3);
+  white-space: pre;
+  text-align: center;
+  user-select: none;
+}
+#sidebar.console-open {
+  bottom: 260px;
+}

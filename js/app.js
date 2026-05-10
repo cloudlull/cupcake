@@ -1893,6 +1893,10 @@ async function boot() {
   await refreshIndicators();
   applyTransform();
   showHint();
+  document.getElementById("console-panel").classList.add("open");
+  document.getElementById("canvas-wrap").classList.add("console-open");
+  document.getElementById("sidebar").classList.add("console-open");
+  document.getElementById("cat-corner").classList.add("open");
 }
 
 document.getElementById("import-btn").addEventListener("click", () => {
@@ -2624,7 +2628,9 @@ function startLoader() {
   const loader = document.getElementById("loader");
   const dur = 1000 + Math.random() * 4000;
   bar.style.transition = `width ${dur}ms linear`;
-  requestAnimationFrame(() => { bar.style.width = "100%"; });
+  requestAnimationFrame(() => {
+    bar.style.width = "100%";
+  });
   setTimeout(() => {
     loader.classList.add("done");
     setTimeout(() => loader.remove(), 450);
@@ -2644,7 +2650,8 @@ function showCtx(x, y, title, rows) {
     rowsEl.appendChild(row);
   });
   menu.classList.add("open");
-  const mw = 220, mh = menu.offsetHeight || 200;
+  const mw = 220,
+    mh = menu.offsetHeight || 200;
   menu.style.left = (x + mw > window.innerWidth ? x - mw : x) + "px";
   menu.style.top = (y + mh > window.innerHeight ? y - mh : y) + "px";
 }
@@ -2654,84 +2661,170 @@ function hideCtx() {
 }
 
 document.addEventListener("click", hideCtx);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideCtx(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") hideCtx();
+});
 
-document.getElementById("canvas-wrap").addEventListener("contextmenu", (e) => {
+document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  const target = e.target;
 
-  if (target.classList.contains("port")) {
-    const nid = target.dataset.node;
-    const pid = target.dataset.port;
-    const dir = target.dataset.dir;
-    const n = nodes[nid];
-    const isLive = target.classList.contains("live");
-    showCtx(e.clientX, e.clientY, "port", [
-      ["node", n?.type || "?"],
-      ["port id", pid],
-      ["direction", dir],
-      ["connected", isLive ? "yes" : "no"]
-    ]);
-    return;
-  }
+  if (e.target.closest("#canvas-wrap")) {
+    const target = e.target;
 
-  if (target.classList.contains("wire")) {
-    const cid = target.dataset.cid;
-    const c = conns[cid];
-    if (c) {
-      showCtx(e.clientX, e.clientY, "wire", [
-        ["from", nodes[c.fn]?.type || c.fn],
-        ["from port", c.fp],
-        ["to", nodes[c.tn]?.type || c.tn],
-        ["to port", c.tp]
+    if (target.classList.contains("port")) {
+      const n = nodes[target.dataset.node];
+      return showCtx(e.clientX, e.clientY, "port", [
+        ["node", n?.type || "?"],
+        ["id", target.dataset.port],
+        ["dir", target.dataset.dir],
+        ["live", target.classList.contains("live") ? "yes" : "no"],
       ]);
     }
-    return;
+    if (target.classList.contains("wire")) {
+      const c = conns[target.dataset.cid];
+      return (
+        c &&
+        showCtx(e.clientX, e.clientY, "wire", [
+          ["from", nodes[c.fn]?.type || c.fn],
+          ["out port", c.fp],
+          ["to", nodes[c.tn]?.type || c.tn],
+          ["in port", c.tp],
+        ])
+      );
+    }
+    const nodeEl = target.closest(".node");
+    if (nodeEl) {
+      const nid = nodeEl.id.replace("node-", "");
+      const n = nodes[nid];
+      const def = TYPES[n?.type];
+      const rows = [
+        ["type", n?.type || "?"],
+        ["cat", def?.cat || "?"],
+        ["id", nid],
+        ["xy", `${Math.round(n?.x)}, ${Math.round(n?.y)}`],
+        ["ins", def?.ins?.length ?? 0],
+        ["outs", def?.outs?.length ?? 0],
+      ];
+      Object.entries(n?.f || {}).forEach(([k, v]) =>
+        rows.push([k, String(v).slice(0, 28) || '""']),
+      );
+      return showCtx(e.clientX, e.clientY, def?.label || "node", rows);
+    }
+    return showCtx(e.clientX, e.clientY, "canvas", [
+      ["nodes", Object.keys(nodes).length],
+      ["wires", Object.keys(conns).length],
+      ["zoom", Math.round(zoom * 100) + "%"],
+      ["pan", `${Math.round(-pan.x / zoom)}, ${Math.round(-pan.y / zoom)}`],
+    ]);
   }
 
-  const nodeEl = target.closest(".node");
-  if (nodeEl) {
-    const nid = nodeEl.id.replace("node-", "");
-    const n = nodes[nid];
-    const def = TYPES[n?.type];
-    const rows = [
-      ["type", n?.type || "?"],
-      ["category", def?.cat || "?"],
-      ["id", nid],
-      ["position", `${Math.round(n?.x)}, ${Math.round(n?.y)}`],
-      ["inputs", def?.ins?.length ?? 0],
-      ["outputs", def?.outs?.length ?? 0],
-    ];
-    Object.entries(n?.f || {}).forEach(([k, v]) => rows.push([k, String(v).slice(0, 30) || '""']));
-    showCtx(e.clientX, e.clientY, def?.label || "node", rows);
-    return;
+  if (e.target.closest("#sidebar")) {
+    const item = e.target.closest(".palette-item");
+    if (item) {
+      const label =
+        item.querySelector(".palette-dot + *")?.textContent?.trim() || "";
+      const type = Object.entries(TYPES).find(
+        ([, d]) => d.label === label,
+      )?.[0];
+      const def = type ? TYPES[type] : null;
+      if (def)
+        return showCtx(e.clientX, e.clientY, def.label, [
+          ["type", type],
+          ["cat", def.cat],
+          ["ins", def.ins.length],
+          ["outs", def.outs.length],
+          ["expr", def.expr ? "yes" : "no"],
+          ["stmt", def.stmt ? "yes" : "no"],
+        ]);
+    }
+    return showCtx(e.clientX, e.clientY, "palette", [
+      ["tab", activeTab],
+      ["total types", Object.keys(TYPES).length],
+    ]);
   }
 
-  showCtx(e.clientX, e.clientY, "canvas", [
+  if (e.target.closest("#toolbar")) {
+    const btn = e.target.closest(".btn");
+    return showCtx(
+      e.clientX,
+      e.clientY,
+      btn ? "button" : "toolbar",
+      btn
+        ? [
+            ["label", btn.textContent.trim()],
+            ["id", btn.id || "—"],
+          ]
+        : [
+            ["nodes", Object.keys(nodes).length],
+            ["wires", Object.keys(conns).length],
+            ["app", "cupcake visual js"],
+          ],
+    );
+  }
+
+  if (e.target.closest("#console-panel") || e.target.closest("#cat-corner")) {
+    return showCtx(e.clientX, e.clientY, "console", [
+      [
+        "status",
+        document.getElementById("run-header-label")?.textContent || "idle",
+      ],
+      [
+        "entries",
+        document.querySelectorAll(".console-entry:not(.system)").length,
+      ],
+    ]);
+  }
+
+  showCtx(e.clientX, e.clientY, "cupcake visual js", [
     ["nodes", Object.keys(nodes).length],
     ["wires", Object.keys(conns).length],
     ["zoom", Math.round(zoom * 100) + "%"],
-    ["pan x", Math.round(-pan.x / zoom)],
-    ["pan y", Math.round(-pan.y / zoom)]
   ]);
 });
 
-document.getElementById("sidebar").addEventListener("contextmenu", (e) => {
-  const item = e.target.closest(".palette-item");
-  if (!item) return;
-  e.preventDefault();
-  const label = item.querySelector(".palette-dot + *")?.textContent || "";
-  const type = Object.entries(TYPES).find(([, d]) => d.label === label.trim())?.[0];
-  const def = type ? TYPES[type] : null;
-  if (!def) return;
-  showCtx(e.clientX, e.clientY, def.label, [
-    ["type", type],
-    ["category", def.cat],
-    ["inputs", def.ins.length],
-    ["outputs", def.outs.length],
-    ["expr", def.expr ? "yes" : "no"],
-    ["stmt", def.stmt ? "yes" : "no"]
-  ]);
-});
+const CAT_FRAMES = [
+  (fly) =>
+    `  /\\_/\\  ${fly[0]}\n ( ·ω· ) ${fly[1]}\n  (づ づ)${fly[2]}\n   |  |  ${fly[3]}`,
+  (fly) =>
+    `  /\\_/\\  ${fly[0]}\n ( °ω°) ${fly[1]}\n  (づ づ)${fly[2]}\n   |  |  ${fly[3]}`,
+  (fly) =>
+    `  /\\_/\\  ${fly[0]}\n ( ·ω·)=${fly[1]}\n  (づ  )${fly[2]}\n   |  |  ${fly[3]}`,
+  (fly) =>
+    `   /\\_/\\ ${fly[0]}\n  (°ω° ) ${fly[1]}\n   (づ づ)${fly[2]}\n    |  | ${fly[3]}`,
+  (fly) =>
+    `  /\\_/\\  ${fly[0]}\n =(·ω· ) ${fly[1]}\n  (  づ)${fly[2]}\n   |  |  ${fly[3]}`,
+  (fly) =>
+    `  /\\_/\\  ${fly[0]}\n ( ·ω·)↑ ${fly[1]}\n  /|  |  ${fly[2]}\n / |  |  ${fly[3]}`,
+  (fly) =>
+    ` /\\_/\\   ${fly[0]}\n(·ω· )↑  ${fly[1]}\n |  |    ${fly[2]}\n |  |    ${fly[3]}`,
+  (fly) =>
+    `  /\\_/\\ ✦${fly[0]}\n (xωx )  ${fly[1]}\n  (づ づ)${fly[2]}\n   |  |  ${fly[3]}`,
+];
+
+const FLY_PATHS = [
+  ["✦", "  ", "  ", "  "],
+  ["  ", "✦ ", "  ", "  "],
+  ["  ", "  ", "✦ ", "  "],
+  ["  ", "  ", "  ", "✦ "],
+  ["  ", "  ", "✦ ", "  "],
+  ["  ", "✦ ", "  ", "  "],
+  ["✦ ", "  ", "  ", "  "],
+];
+
+let catFrame = 0;
+let flyFrame = 0;
+let catDir = 1;
+
+function tickCat() {
+  // :)
+  const el = document.getElementById("cat-ascii");
+  if (!el) return;
+  flyFrame = (flyFrame + 1) % FLY_PATHS.length;
+  catFrame = (catFrame + catDir + CAT_FRAMES.length) % CAT_FRAMES.length;
+  if (catFrame === CAT_FRAMES.length - 1 || catFrame === 0) catDir *= -1;
+  el.textContent = CAT_FRAMES[catFrame](FLY_PATHS[flyFrame]);
+}
+
+setInterval(tickCat, 320);
 
 boot();
