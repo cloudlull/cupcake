@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>cupcake embed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:#090909;--s1:#101010;--s2:#161616;--s3:#1e1e1e;
+      --b1:#252525;--b2:#303030;--cream:#ede3d2;--cream2:#a89880;
+      --cream3:#5e5040;--accent:#d4b87a;--accent2:#8a7040;
+      --col-val:#5888b4;--col-math:#b07840;--col-var:#5a8f5a;
+      --col-logic:#8060b0;--col-flow:#b04848;--col-fn:#c4a050;
+      --col-out:#909090;--col-string:#4a9e7a;--col-array:#6070c0;
+      --col-obj:#a05070;--col-conv:#7090a0;--col-async:#906040;
+      --col-dom:#507870;--col-date:#705090;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); overflow:hidden; width:100vw; height:100vh; }
+    #grid-bg {
+      position:fixed; inset:0;
+      background-image:radial-gradient(circle,#252525 1px,transparent 1px);
+      background-size:24px 24px; pointer-events:none;
+    }
+    #canvas { position:absolute; top:0; left:0; transform-origin:0 0; width:6000px; height:6000px; }
+    #svg-overlay { position:absolute; top:0; left:0; width:6000px; height:6000px; pointer-events:none; overflow:visible; }
+    .wire { fill:none; stroke:var(--b2); stroke-width:2; stroke-linecap:round; }
+    .node {
+      position:absolute; min-width:155px;
+      background:var(--s1); border:1px solid var(--b1);
+      border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,.45);
+    }
+    .node-head {
+      padding:6px 9px; background:var(--s2);
+      border-bottom:1px solid var(--b1); border-radius:11px 11px 0 0;
+      display:flex; align-items:center; gap:6px;
+    }
+    .nd { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .nlabel { font-size:10px; font-weight:600; letter-spacing:.3px; color:var(--cream2); font-family:'Syne',sans-serif; }
+    .nbody { padding:7px 10px; display:flex; flex-direction:column; gap:4px; }
+    .nfield { display:flex; flex-direction:column; gap:2px; }
+    .nflabel { font-size:9px; color:var(--cream3); font-family:'Syne',sans-serif; }
+    .nfval { font-family:'DM Mono',monospace; font-size:11px; color:var(--cream2); padding:3px 7px; background:var(--s3); border-radius:5px; border:1px solid var(--b1); }
+    .ports-wrap { display:flex; justify-content:space-between; }
+    .pcol { display:flex; flex-direction:column; gap:5px; }
+    .pcol.right { align-items:flex-end; }
+    .prow { display:flex; align-items:center; gap:5px; }
+    .prow.right { flex-direction:row-reverse; }
+    .port { width:11px; height:11px; border-radius:50%; background:var(--s3); border:2px solid var(--b2); flex-shrink:0; }
+    .port.live { background:var(--accent2); border-color:var(--accent); }
+    .plabel { font-size:9px; color:var(--cream3); font-family:'Syne',sans-serif; }
+    .frame {
+      position:absolute; border:1.5px solid var(--b2); border-radius:10px;
+      background:rgba(255,255,255,.02); z-index:1; pointer-events:none;
+    }
+    .frame-label {
+      position:absolute; top:-20px; left:8px; font-size:10px; font-weight:600;
+      color:var(--cream3); font-family:'Syne',sans-serif; white-space:nowrap;
+    }
+    #badge {
+      position:fixed; bottom:12px; right:12px; font-size:10px;
+      color:var(--cream3); font-family:'DM Mono',monospace;
+      background:var(--s1); border:1px solid var(--b1);
+      border-radius:8px; padding:5px 10px; text-decoration:none;
+      display:flex; align-items:center; gap:5px;
+    }
+    #badge:hover { color:var(--cream); border-color:var(--b2); }
+    #err { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--cream3); font-family:'DM Mono',monospace; font-size:12px; text-align:center; }
+  </style>
+</head>
+<body>
+<div id="grid-bg"></div>
+<div id="canvas-wrap" style="position:fixed;inset:0;overflow:hidden;">
+  <div id="canvas"><svg id="svg-overlay"></svg></div>
+</div>
+<a id="badge" href="#" target="_blank">🧁 cupcake</a>
+<div id="err" style="display:none">no graph data</div>
+<script>
+const TYPES_MINI = {};
+const COLORS = {
+  values:"var(--col-val)",variables:"var(--col-var)",math:"var(--col-math)",
+  logic:"var(--col-logic)",control:"var(--col-flow)",functions:"var(--col-fn)",
+  strings:"var(--col-string)",arrays:"var(--col-array)",objects:"var(--col-obj)",
+  convert:"var(--col-conv)",async:"var(--col-async)",dom:"var(--col-dom)",
+  date:"var(--col-date)",output:"var(--col-out)"
+};
+
+function bezier(x1,y1,x2,y2) {
+  const dx = Math.abs(x2-x1)*.55;
+  return `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`;
+}
+
+function portPos(nid, dir, pid) {
+  const el = document.getElementById(`p-${nid}-${dir}-${pid}`);
+  if (!el) return null;
+  const canvas = document.getElementById("canvas");
+  const cr = canvas.getBoundingClientRect();
+  const pr = el.getBoundingClientRect();
+  return { x:(pr.left+pr.width/2-cr.left)/zoom, y:(pr.top+pr.height/2-cr.top)/zoom };
+}
+
+let zoom = 1, pan = { x:60, y:60 };
+
+function applyTransform() {
+  document.getElementById("canvas").style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
+  document.getElementById("grid-bg").style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+  document.getElementById("grid-bg").style.backgroundSize = `${24*zoom}px ${24*zoom}px`;
+}
+
+function renderNodeEmbed(n, col, label, fields, ins, outs) {
+  const wrap = document.createElement("div");
+  wrap.className = "node";
+  wrap.id = "node-" + n.id;
+  wrap.style.left = n.x + "px";
+  wrap.style.top = n.y + "px";
+
+  const head = document.createElement("div");
+  head.className = "node-head";
+  head.innerHTML = `<div class="nd" style="background:${col}"></div><span class="nlabel">${label}</span>`;
+  wrap.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "nbody";
+
+  fields.forEach(fld => {
+    const val = n.f?.[fld.id];
+    if (!val && val !== 0) return;
+    const d = document.createElement("div");
+    d.className = "nfield";
+    d.innerHTML = `<span class="nflabel">${fld.label}</span><div class="nfval">${String(val).slice(0,40)}</div>`;
+    body.appendChild(d);
+  });
+
+  const portSec = document.createElement("div");
+  portSec.className = "ports-wrap";
+  const lc = document.createElement("div"); lc.className = "pcol";
+  const rc = document.createElement("div"); rc.className = "pcol right";
+
+  ins.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "prow";
+    const dot = document.createElement("div");
+    dot.className = "port";
+    dot.id = `p-${n.id}-in-${p.id}`;
+    const lbl = document.createElement("span");
+    lbl.className = "plabel";
+    lbl.textContent = p.label;
+    row.appendChild(dot); row.appendChild(lbl); lc.appendChild(row);
+  });
+  outs.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "prow right";
+    const dot = document.createElement("div");
+    dot.className = "port";
+    dot.id = `p-${n.id}-out-${p.id}`;
+    const lbl = document.createElement("span");
+    lbl.className = "plabel";
+    lbl.textContent = p.label;
+    row.appendChild(dot); row.appendChild(lbl); rc.appendChild(row);
+  });
+
+  portSec.appendChild(lc); portSec.appendChild(rc);
+  body.appendChild(portSec);
+  wrap.appendChild(body);
+  document.getElementById("canvas").appendChild(wrap);
+}
+
+function fitGraph(nodes) {
+  if (!Object.keys(nodes).length) return;
+  const xs = Object.values(nodes).map(n => n.x);
+  const ys = Object.values(nodes).map(n => n.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  const maxX = Math.max(...xs) + 180, maxY = Math.max(...ys) + 120;
+  const gw = maxX - minX, gh = maxY - minY;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  zoom = Math.min(1, Math.min((vw - 80) / gw, (vh - 80) / gh));
+  pan.x = (vw - gw * zoom) / 2 - minX * zoom;
+  pan.y = (vh - gh * zoom) / 2 - minY * zoom;
+}
+
+async function boot() {
+  const hash = location.hash.slice(1);
+  if (!hash) { document.getElementById("err").style.display = "block"; return; }
+  let data;
+  try { data = JSON.parse(atob(hash)); } catch { document.getElementById("err").style.display = "block"; return; }
+
+  const { nodes = {}, conns = {}, frames = {} } = data;
+
+  await fetch("js/app.js").then(r => r.text()).then(src => {
+    const match = src.match(/^const TYPES = \{([\s\S]*?)^};/m);
+    if (match) {
+      try { eval(`window.__TYPES__ = {${match[1]}}`); } catch {}
+    }
+  }).catch(() => {});
+
+  fitGraph(nodes);
+  applyTransform();
+
+  Object.values(frames).forEach(f => {
+    const el = document.createElement("div");
+    el.className = "frame";
+    el.style.left = f.x + "px"; el.style.top = f.y + "px";
+    el.style.width = f.w + "px"; el.style.height = f.h + "px";
+    const lbl = document.createElement("div");
+    lbl.className = "frame-label";
+    lbl.textContent = f.label || "";
+    el.appendChild(lbl);
+    document.getElementById("canvas").insertBefore(el, document.getElementById("canvas").firstChild);
+  });
+
+  const typeInfo = window.__TYPES__ || {};
+  Object.values(nodes).forEach(n => {
+    const def = typeInfo[n.type] || {};
+    const col = def.col || "var(--cream3)";
+    const label = def.label || n.type;
+    const fields = def.fields || [];
+    const ins = def.ins || [];
+    const outs = def.outs || [];
+    renderNodeEmbed(n, col, label, fields, ins, outs);
+  });
+
+  requestAnimationFrame(() => {
+    const svg = document.getElementById("svg-overlay");
+    Object.values(conns).forEach(c => {
+      const fp = portPos(c.fn, "out", c.fp);
+      const tp = portPos(c.tn, "in", c.tp);
+      if (!fp || !tp) return;
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", bezier(fp.x, fp.y, tp.x, tp.y));
+      path.classList.add("wire");
+      const srcNode = nodes[c.fn];
+      if (srcNode && typeInfo[srcNode.type]?.col) path.style.stroke = typeInfo[srcNode.type].col;
+      svg.appendChild(path);
+      [c.fn+"-out-"+c.fp, c.tn+"-in-"+c.tp].forEach(id => {
+        document.getElementById("p-" + id)?.classList.add("live");
+      });
+    });
+  });
+
+  document.getElementById("badge").href = document.referrer || location.href.replace("embed.html","index.html");
+}
+
+boot();
+</script>
+</body>
+</html>
