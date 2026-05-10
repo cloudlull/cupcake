@@ -1114,6 +1114,14 @@ body {
   scrollbar-color: var(--b2) transparent;
 }
 
+* {
+  cursor: none !important;
+}
+
+input, select, textarea, button, a {
+  cursor: none !important;
+}
+
 #cursor {
   position: fixed;
   pointer-events: none;
