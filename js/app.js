@@ -974,6 +974,32 @@ const TYPES = {
     gen: (n, ge) =>
       `fetch(${ge(n.id, "url")}, { method: "${n.f.method || "GET"}" })`,
   },
+  http_request: {
+    label: "http request",
+    cat: "async",
+    col: "var(--col-async)",
+    fields: [
+      { id: "method", label: "method", kind: "select", opts: ["GET","POST","PUT","DELETE","PATCH"], def: "GET" },
+      { id: "headers", label: "headers (json)", kind: "text", def: '{"content-type":"application/json"}' },
+      { id: "auth", label: "bearer token", kind: "text", def: "" },
+    ],
+    ins: [
+      { id: "url", label: "url" },
+      { id: "body", label: "body" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => {
+      const method = n.f.method || "GET";
+      const hasBody = Object.values(conns).find(c => c.tn === n.id && c.tp === "body");
+      let hdrs = {};
+      try { hdrs = JSON.parse(n.f.headers || "{}"); } catch {}
+      if (n.f.auth) hdrs["authorization"] = `Bearer ${n.f.auth}`;
+      const opts = [`method: "${method}"`, `headers: ${JSON.stringify(hdrs)}`];
+      if (hasBody) opts.push(`body: JSON.stringify(${ge(n.id, "body")})`);
+      return `fetch(${ge(n.id, "url")}, { ${opts.join(", ")} })`;
+    },
+  },
   set_timeout: {
     label: "setTimeout",
     cat: "async",
@@ -1841,6 +1867,48 @@ const TYPES = {
     expr: true,
     gen: (n, ge) => `${ge(n.id, "str")}.match(${n.f.re || "/pattern/g"})`,
   },
+  regex_test: {
+  label: "regex tester",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [
+        { id: "pattern", label: "pattern", kind: "text", def: "\\w+" },
+      { id: "flags", label: "flags", kind: "text", def: "gi" },
+      { id: "test", label: "test string", kind: "text", def: "hello world 123" },
+    ],
+    ins: [{ id: "str", label: "string (optional)" }],
+    outs: [{ id: "out", label: "matches" }],
+    expr: true,
+    gen: (n, ge) => {
+      const p = (n.f.pattern || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      const c = Object.values(conns).find(c => c.tn === n.id && c.tp === "str");
+      const src = c ? ge(n.id, "str") : `"${(n.f.test||"").replace(/"/g,'\\"')}"`;
+      return `${src}.match(new RegExp("${p}", "${n.f.flags||"gi"}"))`;
+    },
+    postRender: (wrap, n) => {
+      const prev = document.createElement("div");
+      prev.style.cssText = "padding:5px 10px 9px;border-top:1px solid var(--b1);font-family:'DM Mono',monospace;font-size:10px;line-height:1.5;word-break:break-all;min-height:24px;";
+      wrap.querySelector(".nbody").appendChild(prev);
+      function run() {
+        const pat = n.f.pattern || "";
+        const str = n.f.test || "";
+        if (!pat || !str) { prev.textContent = ""; return; }
+        try {
+          const flags = (n.f.flags || "gi").includes("g") ? n.f.flags : (n.f.flags || "") + "g";
+          const matches = [...str.matchAll(new RegExp(pat, flags))].map(m => m[0]);
+          prev.style.color = matches.length ? "var(--col-string)" : "var(--cream3)";
+          prev.textContent = matches.length
+            ? `${matches.length} match${matches.length !== 1 ? "es" : ""}: ${matches.slice(0, 5).join(" · ")}${matches.length > 5 ? ` +${matches.length - 5}` : ""}`
+            : "no matches";
+        } catch {
+          prev.style.color = "var(--col-flow)";
+          prev.textContent = "invalid pattern";
+        }
+      }
+      wrap.querySelectorAll(".nfinput").forEach(i => i.addEventListener("input", run));
+      run();
+    },
+  },
   str_replaceall: {
     label: "replaceAll",
     cat: "strings",
@@ -2158,6 +2226,7 @@ let searchQ = "",
   searchVisible = false;
 let drawWiresScheduled = false;
 let frames = {};
+let moduleMode = false;
 function uid() {
   return "n" + nid++;
 }
@@ -2193,6 +2262,25 @@ function updateCoords() {
   document.getElementById("coord-y").textContent = oy;
   document.getElementById("coord-z").textContent = Math.round(zoom * 100) + "%";
 }
+
+function wrapModule(code) {
+  const exports = [];
+  code.split("\n").forEach(line => {
+    const m = line.match(/^(?:async\s+)?function\s+(\w+)|^(?:const|let|var)\s+(\w+)\s*=/);
+    if (m) exports.push(m[1] || m[2]);
+  });
+  return exports.length
+    ? `${code}\n\nexport { ${exports.join(", ")} };`
+    : `export default function run() {\n${code.split("\n").map(l => "  " + l).join("\n")}\n}`;
+}
+
+document.getElementById("module-btn").addEventListener("click", () => {
+  moduleMode = !moduleMode;
+  const btn = document.getElementById("module-btn");
+  btn.textContent = moduleMode ? "esm: on" : "esm: off";
+  btn.style.color = moduleMode ? "var(--accent)" : "";
+  btn.style.borderColor = moduleMode ? "var(--accent2)" : "";
+});
 
 function applyTransform() {
   document.getElementById("canvas").style.transform =
@@ -2565,6 +2653,7 @@ function renderNode(id) {
   body.appendChild(portSec);
   wrap.appendChild(body);
   document.getElementById("canvas").appendChild(wrap);
+  if (def.postRender) def.postRender(wrap, n);
 
   head.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
@@ -3071,6 +3160,36 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   toast("canvas cleared");
 });
 
+async function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function prettierFormat(code) {
+  if (!window.prettier) {
+    await loadScript("https://unpkg.com/prettier@3.3.3/standalone.js");
+    await loadScript("https://unpkg.com/prettier@3.3.3/plugins/estree.js");
+    await loadScript("https://unpkg.com/prettier@3.3.3/plugins/babel.js");
+  }
+  try {
+    return await window.prettier.format(code, {
+      parser: "babel",
+      plugins: window.prettierPlugins ? [window.prettierPlugins.estree, window.prettierPlugins.babel] : [],
+      semi: true,
+      singleQuote: false,
+      tabWidth: 2,
+      printWidth: 80,
+    });
+  } catch {
+    return code;
+  }
+}
+
 document.getElementById("compile-btn").addEventListener("click", () => {
   const modal = document.getElementById("compile-modal");
   const body = document.getElementById("modal-body");
@@ -3091,25 +3210,27 @@ document.getElementById("compile-btn").addEventListener("click", () => {
   }, 350);
 
   const delay = 1000 + Math.random() * 2000;
-  setTimeout(() => {
-    clearInterval(dotInterval);
-    let code;
-    try {
-      code = compileCode();
-    } catch (err) {
-      code = "// compile error: " + err.message;
-    }
-    title.textContent = "compiled output";
-    body.innerHTML = "";
-    const cb = document.createElement("div");
-    cb.className = "codebox";
-    cb.id = "codebox";
-    cb.textContent = code;
-    body.appendChild(cb);
-    foot.style.display = "flex";
-  }, delay);
-});
-
+  setTimeout(async () => {
+  clearInterval(dotInterval);
+  let code;
+  try {
+    code = compileCode();
+  } catch (err) {
+    code = "// compile error: " + err.message;
+  }
+  if (!code.startsWith("// compile error") && !code.startsWith("// nothing")) {
+    code = await prettierFormat(code);
+  }
+  title.textContent = "compiled output";
+  body.innerHTML = "";
+  const cb = document.createElement("div");
+  cb.className = "codebox";
+  cb.id = "codebox";
+  cb.textContent = moduleMode ? wrapModule(code) : code;
+  body.appendChild(cb);
+  foot.style.display = "flex";
+}, delay);
+  
 document
   .getElementById("modal-close")
   .addEventListener("click", () =>
@@ -3237,6 +3358,38 @@ document.getElementById("import-cancel-btn").addEventListener("click", () => {
   document.getElementById("import-modal").classList.remove("open");
 });
 
+document.getElementById("embed-btn").addEventListener("click", () => {
+  const payload = btoa(JSON.stringify({ nodes, conns, frames }));
+  const url = `${location.origin}${location.pathname.replace("index.html","").replace(/\/$/, "")}/embed.html#${payload}`;
+  const modal = document.getElementById("compile-modal");
+  const body = document.getElementById("modal-body");
+  const foot = document.getElementById("modal-foot");
+  const title = document.getElementById("modal-title");
+  title.textContent = "embed";
+  body.innerHTML = "";
+  foot.style.display = "flex";
+  modal.classList.add("open");
+
+  const hint = document.createElement("div");
+  hint.style.cssText = "font-size:11px;color:var(--cream3);margin-bottom:10px;line-height:1.7;";
+  hint.textContent = "paste this iframe into any page. the graph is encoded in the url — no server needed.";
+
+  const cb = document.createElement("div");
+  cb.className = "codebox";
+  cb.id = "codebox";
+  cb.textContent = `<iframe\n  src="${url}"\n  width="100%"\n  height="500"\n  style="border:none;border-radius:12px"\n></iframe>`;
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.style.cssText = "font-size:11px;color:var(--accent);display:block;margin-top:9px;font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+  link.textContent = url;
+
+  body.appendChild(hint);
+  body.appendChild(cb);
+  body.appendChild(link);
+});
+  
 document.getElementById("import-go-btn").addEventListener("click", () => {
   const raw = document.getElementById("import-textarea")?.value?.trim();
   if (!raw) return;
