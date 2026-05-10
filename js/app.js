@@ -2287,8 +2287,8 @@ function drawWires() {
     badge.appendChild(rect);
     badge.appendChild(txt);
     svg.appendChild(badge);
+    refreshPortStates();
   });
-  refreshPortStates();
 }
 
 function refreshPortStates() {
@@ -2704,12 +2704,10 @@ document.addEventListener("mouseup", () => {
     panning = false;
     canvasWrap.style.cursor = "default";
   }
-});
-
-document.addEventListener("mouseup", () => {
+  const wasResizing = resizing || sideResizing;
   resizing = false;
   sideResizing = false;
-  if (!resizing && !sideResizing) savePanelSizes();
+  if (wasResizing) savePanelSizes();
 });
   
 canvasWrap.addEventListener(
