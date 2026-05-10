@@ -2173,6 +2173,14 @@ function toast(msg) {
   t._tid = setTimeout(() => t.classList.remove("on"), 1900);
 }
 
+function clientToCanvas(clientX, clientY) {
+  const wrap = document.getElementById("canvas-wrap").getBoundingClientRect();
+  return {
+    x: (clientX - wrap.left - pan.x) / zoom,
+    y: (clientY - wrap.top - pan.y) / zoom
+  };
+}
+
 function showHint() {
   const h = document.getElementById("hint");
   h.style.opacity = Object.keys(nodes).length === 0 ? "1" : "0";
@@ -2674,6 +2682,51 @@ canvasWrap.addEventListener("mousedown", (e) => {
 });
 
 document.addEventListener("mousemove", (e) => {
+  if (drawingFrame && frameDrawStart && framePreview) {
+    const pos = clientToCanvas(e.clientX, e.clientY);
+    const x = Math.min(pos.x, frameDrawStart.x);
+    const y = Math.min(pos.y, frameDrawStart.y);
+    const w = Math.abs(pos.x - frameDrawStart.x);
+    const h = Math.abs(pos.y - frameDrawStart.y);
+    framePreview.style.left = x + "px";
+    framePreview.style.top = y + "px";
+    framePreview.style.width = w + "px";
+    framePreview.style.height = h + "px";
+    return;
+  }
+
+  if (dragFrame) {
+    const f = frames[dragFrame];
+    if (!f) return;
+    const dx = (e.clientX - dragFrameStart.x) / zoom;
+    const dy = (e.clientY - dragFrameStart.y) / zoom;
+    f.x = dragFrameOrigin.x + dx;
+    f.y = dragFrameOrigin.y + dy;
+    const el = document.getElementById("frame-" + dragFrame);
+    if (el) { el.style.left = f.x + "px"; el.style.top = f.y + "px"; }
+    Object.entries(dragFrameNodeOrigins).forEach(([nid, origin]) => {
+      if (!nodes[nid]) return;
+      nodes[nid].x = origin.x + dx;
+      nodes[nid].y = origin.y + dy;
+      const nel = document.getElementById("node-" + nid);
+      if (nel) { nel.style.left = nodes[nid].x + "px"; nel.style.top = nodes[nid].y + "px"; }
+    });
+    drawWires();
+    return;
+  }
+
+  if (resizeFrame) {
+    const f = frames[resizeFrame];
+    if (!f) return;
+    const dx = (e.clientX - resizeFrameStart.x) / zoom;
+    const dy = (e.clientY - resizeFrameStart.y) / zoom;
+    f.w = Math.max(120, resizeFrameOrigin.w + dx);
+    f.h = Math.max(80, resizeFrameOrigin.h + dy);
+    const el = document.getElementById("frame-" + resizeFrame);
+    if (el) { el.style.width = f.w + "px"; el.style.height = f.h + "px"; }
+    return;
+  }
+
   if (dragNode) {
     const n = nodes[dragNode];
     if (!n) return;
@@ -2685,29 +2738,25 @@ document.addEventListener("mousemove", (e) => {
         nodes[mid].x = dragMultiOrigins[mid].x + dx;
         nodes[mid].y = dragMultiOrigins[mid].y + dy;
         const el = document.getElementById("node-" + mid);
-        if (el) {
-          el.style.left = nodes[mid].x + "px";
-          el.style.top = nodes[mid].y + "px";
-        }
+        if (el) { el.style.left = nodes[mid].x + "px"; el.style.top = nodes[mid].y + "px"; }
       });
     } else {
       n.x = dragNodeOrigin.x + dx;
       n.y = dragNodeOrigin.y + dy;
       const el = document.getElementById("node-" + dragNode);
-      if (el) {
-        el.style.left = n.x + "px";
-        el.style.top = n.y + "px";
-      }
+      if (el) { el.style.left = n.x + "px"; el.style.top = n.y + "px"; }
     }
     drawWires();
     return;
   }
+
   if (panning && panStart) {
     pan.x = panOrigin.x + e.clientX - panStart.x;
     pan.y = panOrigin.y + e.clientY - panStart.y;
     applyTransform();
     return;
   }
+
   if (pending) {
     const svg = document.getElementById("svg-overlay");
     svg.querySelectorAll(".temp").forEach((e) => e.remove());
@@ -2724,7 +2773,24 @@ document.addEventListener("mousemove", (e) => {
   }
 });
 
-document.addEventListener("mouseup", () => {
+document.addEventListener("mouseup", (e) => {
+  if (drawingFrame && frameDrawStart && framePreview) {
+    const pos = clientToCanvas(e.clientX, e.clientY);
+    const x = Math.min(pos.x, frameDrawStart.x);
+    const y = Math.min(pos.y, frameDrawStart.y);
+    const w = Math.abs(pos.x - frameDrawStart.x);
+    const h = Math.abs(pos.y - frameDrawStart.y);
+    framePreview.remove();
+    framePreview = null;
+    drawingFrame = false;
+    frameDrawStart = null;
+    if (w > 40 && h > 30) makeFrame(x, y, w, h);
+    return;
+  }
+
+  dragFrame = null;
+  dragFrameNodeOrigins = null;
+  resizeFrame = null;
   dragNode = null;
   dragMultiOrigins = null;
   if (panning) {
@@ -2736,7 +2802,7 @@ document.addEventListener("mouseup", () => {
   sideResizing = false;
   if (wasResizing) savePanelSizes();
 });
-
+                          
 canvasWrap.addEventListener(
   "wheel",
   (e) => {
@@ -4242,7 +4308,7 @@ function makeFrame(x, y, w, h) {
   snapshot();
   const id = uid();
   frames[id] = { id, x, y, w: Math.max(120, w), h: Math.max(80, h), label: "group" };
-  renderFrame(id);
+  renderFrame(id, true);
   return id;
 }
 
@@ -4252,7 +4318,7 @@ function deleteFrame(id) {
   document.getElementById("frame-" + id)?.remove();
 }
 
-function renderFrame(id) {
+function renderFrame(id, snap = false) {
   const f = frames[id];
   const el = document.createElement("div");
   el.className = "frame";
@@ -4262,6 +4328,20 @@ function renderFrame(id) {
   el.style.width = f.w + "px";
   el.style.height = f.h + "px";
 
+  if (snap) {
+    el.style.transform = "scale(0.96)";
+    el.style.opacity = "0.4";
+    el.style.transition = "transform 0.2s cubic-bezier(0.34,1.56,0.64,1), opacity 0.15s";
+    requestAnimationFrame(() => {
+      el.style.transform = "scale(1)";
+      el.style.opacity = "1";
+      setTimeout(() => {
+        el.style.transition = "";
+        el.style.transform = "";
+      }, 220);
+    });
+  }
+  
   const label = document.createElement("input");
   label.className = "frame-label";
   label.value = f.label;
@@ -4314,15 +4394,13 @@ canvasWrap.addEventListener("mousedown", e => {
   e.preventDefault();
   e.stopPropagation();
   drawingFrame = true;
-  const rect = document.getElementById("canvas").getBoundingClientRect();
-  frameDrawStart = {
-    x: (e.clientX - rect.left) / zoom,
-    y: (e.clientY - rect.top) / zoom
-  };
+  frameDrawStart = clientToCanvas(e.clientX, e.clientY);
   framePreview = document.createElement("div");
   framePreview.style.cssText = `position:absolute;border:1.5px dashed var(--accent2);border-radius:10px;background:rgba(212,184,122,0.05);pointer-events:none;z-index:2;`;
   framePreview.style.left = frameDrawStart.x + "px";
   framePreview.style.top = frameDrawStart.y + "px";
+  framePreview.style.width = "0px";
+  framePreview.style.height = "0px";
   document.getElementById("canvas").appendChild(framePreview);
 });
 
