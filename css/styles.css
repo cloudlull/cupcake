@@ -1272,3 +1272,21 @@ input, select, textarea, button, a {
   right: 0;
   height: 26px;
 }
+
+#minimap {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 180px;
+  height: 120px;
+  background: var(--s1);
+  border-top: 1px solid var(--b1);
+  border-left: 1px solid var(--b1);
+  z-index: 95;
+  overflow: hidden;
+  transition: bottom 0.2s ease;
+}
+#minimap-canvas {
+  display: block;
+  cursor: crosshair;
+}
