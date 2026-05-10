@@ -1113,3 +1113,28 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--b2) transparent;
 }
+
+* {
+  cursor: none !important;
+}
+
+#cursor {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99999;
+  transform: translate(-50%, -50%);
+  transition:
+    width 0.12s,
+    height 0.12s,
+    opacity 0.12s;
+  mix-blend-mode: difference;
+}
+#cursor.big {
+  width: 24px;
+  height: 24px;
+  opacity: 0.5;
+}

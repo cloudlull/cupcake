@@ -2240,55 +2240,67 @@ function drawWires() {
   requestAnimationFrame(() => {
     drawWiresScheduled = false;
     const svg = document.getElementById("svg-overlay");
-  Array.from(svg.querySelectorAll(".wire:not(.temp), .wire-badge")).forEach((e) => e.remove());
-  Object.values(conns).forEach((c) => {
-    const fp = portPos(c.fn, "out", c.fp);
-    const tp = portPos(c.tn, "in", c.tp);
-    if (!fp || !tp) return;
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", bezier(fp.x, fp.y, tp.x, tp.y));
-    path.classList.add("wire");
-    const col = TYPES[nodes[c.fn]?.type]?.col;
-    if (col) path.style.stroke = col;
-    path.dataset.cid = c.id;
-    path.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      removeConn(c.id);
+    Array.from(svg.querySelectorAll(".wire:not(.temp), .wire-badge")).forEach(
+      (e) => e.remove(),
+    );
+    Object.values(conns).forEach((c) => {
+      const fp = portPos(c.fn, "out", c.fp);
+      const tp = portPos(c.tn, "in", c.tp);
+      if (!fp || !tp) return;
+      const path = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "path",
+      );
+      path.setAttribute("d", bezier(fp.x, fp.y, tp.x, tp.y));
+      path.classList.add("wire");
+      const col = TYPES[nodes[c.fn]?.type]?.col;
+      if (col) path.style.stroke = col;
+      path.dataset.cid = c.id;
+      path.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        removeConn(c.id);
+      });
+      svg.appendChild(path);
+      const mid = { x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2 };
+      const badge = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      badge.classList.add("wire-badge");
+      badge.dataset.cid = c.id;
+      const rect = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "rect",
+      );
+      rect.setAttribute("rx", "4");
+      rect.setAttribute("height", "14");
+      rect.setAttribute("fill", "#161616");
+      rect.setAttribute("stroke", col || "#303030");
+      rect.setAttribute("stroke-width", "1");
+      const txt = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "text",
+      );
+      txt.setAttribute("font-family", "DM Mono, monospace");
+      txt.setAttribute("font-size", "8");
+      txt.setAttribute("fill", "#a89880");
+      txt.setAttribute("dominant-baseline", "middle");
+      txt.setAttribute("text-anchor", "middle");
+      txt.setAttribute("y", String(mid.y));
+      try {
+        const expr = getWireExpr(c.fn, c.fp);
+        txt.textContent =
+          expr && expr.length > 18 ? expr.slice(0, 16) + "…" : expr || "";
+      } catch {
+        txt.textContent = "";
+      }
+      const tw = Math.max(30, txt.textContent.length * 5.5 + 10);
+      rect.setAttribute("width", String(tw));
+      rect.setAttribute("x", String(mid.x - tw / 2));
+      rect.setAttribute("y", String(mid.y - 7));
+      txt.setAttribute("x", String(mid.x));
+      badge.appendChild(rect);
+      badge.appendChild(txt);
+      svg.appendChild(badge);
     });
-    svg.appendChild(path);
-    const mid = { x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2 };
-    const badge = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    badge.classList.add("wire-badge");
-    badge.dataset.cid = c.id;
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rect.setAttribute("rx", "4");
-    rect.setAttribute("height", "14");
-    rect.setAttribute("fill", "#161616");
-    rect.setAttribute("stroke", col || "#303030");
-    rect.setAttribute("stroke-width", "1");
-    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    txt.setAttribute("font-family", "DM Mono, monospace");
-    txt.setAttribute("font-size", "8");
-    txt.setAttribute("fill", "#a89880");
-    txt.setAttribute("dominant-baseline", "middle");
-    txt.setAttribute("text-anchor", "middle");
-    txt.setAttribute("y", String(mid.y));
-    try {
-      const expr = getWireExpr(c.fn, c.fp);
-      txt.textContent = expr && expr.length > 18 ? expr.slice(0, 16) + "…" : (expr || "");
-    } catch {
-      txt.textContent = "";
-    }
-    const tw = Math.max(30, txt.textContent.length * 5.5 + 10);
-    rect.setAttribute("width", String(tw));
-    rect.setAttribute("x", String(mid.x - tw / 2));
-    rect.setAttribute("y", String(mid.y - 7));
-    txt.setAttribute("x", String(mid.x));
-    badge.appendChild(rect);
-    badge.appendChild(txt);
-    svg.appendChild(badge);
-  });
-  refreshPortStates();
+    refreshPortStates();
   });
 }
 
@@ -2710,7 +2722,7 @@ document.addEventListener("mouseup", () => {
   sideResizing = false;
   if (wasResizing) savePanelSizes();
 });
-  
+
 canvasWrap.addEventListener(
   "wheel",
   (e) => {
@@ -4034,47 +4046,61 @@ document.addEventListener("contextmenu", (e) => {
 
 const consolePanel = document.getElementById("console-panel");
 const resizeHandle = document.createElement("div");
-resizeHandle.style.cssText = "position:absolute;top:-4px;left:0;right:0;height:8px;cursor:ns-resize;z-index:200;";
+resizeHandle.style.cssText =
+  "position:absolute;top:-4px;left:0;right:0;height:8px;cursor:ns-resize;z-index:200;";
 consolePanel.appendChild(resizeHandle);
 
-let resizing = false, resizeStartY = 0, resizeStartH = 0;
+let resizing = false,
+  resizeStartY = 0,
+  resizeStartH = 0;
 
-resizeHandle.addEventListener("mousedown", e => {
+resizeHandle.addEventListener("mousedown", (e) => {
   resizing = true;
   resizeStartY = e.clientY;
   resizeStartH = consolePanel.offsetHeight;
   e.preventDefault();
 });
 
-document.addEventListener("mousemove", e => {
+document.addEventListener("mousemove", (e) => {
   if (!resizing) return;
   const delta = resizeStartY - e.clientY;
-  const newH = Math.max(80, Math.min(window.innerHeight - 100, resizeStartH + delta));
+  const newH = Math.max(
+    80,
+    Math.min(window.innerHeight - 100, resizeStartH + delta),
+  );
   consolePanel.style.height = newH + "px";
   document.getElementById("canvas-wrap").style.bottom = newH + "px";
   document.getElementById("sidebar").style.bottom = newH + "px";
   document.getElementById("cat-corner").style.height = newH + "px";
 });
 
-document.addEventListener("mouseup", () => { resizing = false; });
+document.addEventListener("mouseup", () => {
+  resizing = false;
+});
 
 const sidebar = document.getElementById("sidebar");
 const sideResizeHandle = document.createElement("div");
-sideResizeHandle.style.cssText = "position:absolute;top:0;right:-4px;bottom:0;width:8px;cursor:ew-resize;z-index:200;";
+sideResizeHandle.style.cssText =
+  "position:absolute;top:0;right:-4px;bottom:0;width:8px;cursor:ew-resize;z-index:200;";
 sidebar.appendChild(sideResizeHandle);
 
-let sideResizing = false, sideStartX = 0, sideStartW = 0;
+let sideResizing = false,
+  sideStartX = 0,
+  sideStartW = 0;
 
-sideResizeHandle.addEventListener("mousedown", e => {
+sideResizeHandle.addEventListener("mousedown", (e) => {
   sideResizing = true;
   sideStartX = e.clientX;
   sideStartW = sidebar.offsetWidth;
   e.preventDefault();
 });
 
-document.addEventListener("mousemove", e => {
+document.addEventListener("mousemove", (e) => {
   if (!sideResizing) return;
-  const newW = Math.max(140, Math.min(400, sideStartW + e.clientX - sideStartX));
+  const newW = Math.max(
+    140,
+    Math.min(400, sideStartW + e.clientX - sideStartX),
+  );
   sidebar.style.width = newW + "px";
   document.getElementById("canvas-wrap").style.left = newW + "px";
   document.getElementById("console-panel").style.left = newW + "px";
@@ -4082,7 +4108,9 @@ document.addEventListener("mousemove", e => {
   document.getElementById("hint").style.left = `calc(50% + ${newW / 2}px)`;
 });
 
-document.addEventListener("mouseup", () => { sideResizing = false; });
+document.addEventListener("mouseup", () => {
+  sideResizing = false;
+});
 
 function savePanelSizes() {
   localStorage.setItem("cupcake_sidebar_w", sidebar.offsetWidth);
@@ -4108,6 +4136,21 @@ function loadPanelSizes() {
     document.getElementById("cat-corner").style.height = newH + "px";
   }
 }
+
+const cur = document.getElementById("cursor");
+document.addEventListener("mousemove", (e) => {
+  cur.style.left = e.clientX + "px";
+  cur.style.top = e.clientY + "px";
+});
+document.addEventListener("mousedown", () => cur.classList.add("big"));
+document.addEventListener("mouseup", () => cur.classList.remove("big"));
+
+window.addEventListener("beforeunload", (e) => {
+  if (Object.keys(nodes).length > 0) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
 
 const CAT_FRAMES = [
   (fly) =>
@@ -4154,4 +4197,12 @@ function tickCat() {
 
 setInterval(tickCat, 320);
 
-boot();
+if (
+  window.innerWidth < 768 ||
+  /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+) {
+  document.getElementById("mobile-block").style.display = "flex";
+  document.getElementById("loader").remove();
+} else {
+  boot();
+}
