@@ -2287,7 +2287,8 @@ function drawWires() {
     badge.appendChild(rect);
     badge.appendChild(txt);
     svg.appendChild(badge);
-    refreshPortStates();
+  });
+  refreshPortStates();
   });
 }
 
