@@ -2635,6 +2635,18 @@ function renderNode(id) {
   body.appendChild(portSec);
   wrap.appendChild(body);
   document.getElementById("canvas").appendChild(wrap);
+
+  if (SETTINGS.spawnAnimation) {
+    wrap.style.transform = "scale(0.92)";
+    wrap.style.opacity = "0";
+    wrap.style.transition = "transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s";
+    requestAnimationFrame(() => {
+      wrap.style.transform = "";
+      wrap.style.opacity = "";
+      setTimeout(() => { wrap.style.transition = ""; }, 200);
+    });
+  }
+  
   if (def.postRender) def.postRender(wrap, n);
 
   head.addEventListener("mousedown", (e) => {
@@ -2771,14 +2783,14 @@ document.addEventListener("mousemove", (e) => {
     if (!f) return;
     const dx = (e.clientX - dragFrameStart.x) / zoom;
     const dy = (e.clientY - dragFrameStart.y) / zoom;
-    f.x = dragFrameOrigin.x + dx;
-    f.y = dragFrameOrigin.y + dy;
+    f.x = snapToGrid(dragFrameOrigin.x + dx);
+    f.y = snapToGrid(dragFrameOrigin.y + dy);
     const el = document.getElementById("frame-" + dragFrame);
     if (el) { el.style.left = f.x + "px"; el.style.top = f.y + "px"; }
     Object.entries(dragFrameNodeOrigins).forEach(([nid, origin]) => {
       if (!nodes[nid]) return;
-      nodes[nid].x = origin.x + dx;
-      nodes[nid].y = origin.y + dy;
+      nodes[nid].x = snapToGrid(origin.x + dx);
+      nodes[nid].y = snapToGrid(origin.y + dy);
       const nel = document.getElementById("node-" + nid);
       if (nel) { nel.style.left = nodes[nid].x + "px"; nel.style.top = nodes[nid].y + "px"; }
     });
@@ -2804,19 +2816,19 @@ document.addEventListener("mousemove", (e) => {
     const dx = (e.clientX - dragStart.x) / zoom;
     const dy = (e.clientY - dragStart.y) / zoom;
     if (multiSel.has(dragNode) && dragMultiOrigins) {
-      multiSel.forEach((mid) => {
-        if (!nodes[mid] || !dragMultiOrigins[mid]) return;
-        nodes[mid].x = dragMultiOrigins[mid].x + dx;
-        nodes[mid].y = dragMultiOrigins[mid].y + dy;
-        const el = document.getElementById("node-" + mid);
-        if (el) { el.style.left = nodes[mid].x + "px"; el.style.top = nodes[mid].y + "px"; }
-      });
-    } else {
-      n.x = dragNodeOrigin.x + dx;
-      n.y = dragNodeOrigin.y + dy;
-      const el = document.getElementById("node-" + dragNode);
-      if (el) { el.style.left = n.x + "px"; el.style.top = n.y + "px"; }
-    }
+    multiSel.forEach((mid) => {
+      if (!nodes[mid] || !dragMultiOrigins[mid]) return;
+      nodes[mid].x = snapToGrid(dragMultiOrigins[mid].x + dx);
+      nodes[mid].y = snapToGrid(dragMultiOrigins[mid].y + dy);
+      const el = document.getElementById("node-" + mid);
+      if (el) { el.style.left = nodes[mid].x + "px"; el.style.top = nodes[mid].y + "px"; }
+    });
+  } else {
+    n.x = snapToGrid(dragNodeOrigin.x + dx);
+    n.y = snapToGrid(dragNodeOrigin.y + dy);
+    const el = document.getElementById("node-" + dragNode);
+    if (el) { el.style.left = n.x + "px"; el.style.top = n.y + "px"; }
+  }
     drawWires();
     return;
   }
@@ -3530,76 +3542,67 @@ function applySettings() {
   r.setProperty("--col-async", SETTINGS.colAsync);
   r.setProperty("--col-dom", SETTINGS.colDom);
   r.setProperty("--col-date", SETTINGS.colDate);
+  r.setProperty("--settings-node-opacity", SETTINGS.nodeOpacity);
+  r.setProperty("--settings-node-radius", SETTINGS.nodeBorderRadius + "px");
+  r.setProperty("--settings-node-head-radius", SETTINGS.nodeHeadRadius + "px");
+  r.setProperty("--settings-node-blur", SETTINGS.nodeBlur > 0 ? `blur(${SETTINGS.nodeBlur}px)` : "none");
+  r.setProperty("--settings-wire-width", SETTINGS.wireWidth);
+  r.setProperty("--settings-wire-opacity", SETTINGS.wireOpacity);
+  r.setProperty("--settings-cursor-color", SETTINGS.cursorColor);
+  r.setProperty("--settings-cursor-scale", SETTINGS.cursorSize);
+  r.setProperty("--settings-wire-badges-display", SETTINGS.showWireBadges ? "inline" : "none");
 
   const sidebar = document.getElementById("sidebar");
   const consolePanel = document.getElementById("console-panel");
   const toolbar = document.getElementById("toolbar");
   const catCorner = document.getElementById("cat-corner");
+  const consolebar = document.getElementById("console-bar");
 
   if (sidebar) {
     sidebar.style.background = hexToRgba(SETTINGS.s1Color, SETTINGS.sidebarOpacity);
     sidebar.style.backdropFilter = SETTINGS.sidebarBlur > 0 ? `blur(${SETTINGS.sidebarBlur}px)` : "";
   }
+  if (catCorner) {
+    catCorner.style.background = hexToRgba(SETTINGS.s1Color, SETTINGS.sidebarOpacity);
+    catCorner.style.backdropFilter = SETTINGS.sidebarBlur > 0 ? `blur(${SETTINGS.sidebarBlur}px)` : "";
+  }
   if (consolePanel) {
     consolePanel.style.background = hexToRgba("#080808", SETTINGS.consoleOpacity);
     consolePanel.style.backdropFilter = SETTINGS.consoleBlur > 0 ? `blur(${SETTINGS.consoleBlur}px)` : "";
   }
-  if (catCorner) {
-    catCorner.style.background = hexToRgba(SETTINGS.s1Color, SETTINGS.sidebarOpacity);
+  if (consolebar) {
+    consolebar.style.background = hexToRgba(SETTINGS.s1Color, SETTINGS.consoleOpacity);
   }
   if (toolbar) {
     toolbar.style.background = hexToRgba(SETTINGS.s1Color, SETTINGS.toolbarOpacity);
     toolbar.style.backdropFilter = SETTINGS.toolbarBlur > 0 ? `blur(${SETTINGS.toolbarBlur}px)` : "";
   }
 
-  document.querySelectorAll(".node").forEach(el => {
-    el.style.opacity = SETTINGS.nodeOpacity;
-    el.style.backdropFilter = SETTINGS.nodeBlur > 0 ? `blur(${SETTINGS.nodeBlur}px)` : "";
-    el.style.borderRadius = SETTINGS.nodeBorderRadius + "px";
-  });
-  document.querySelectorAll(".node-head").forEach(el => {
-    el.style.borderRadius = (SETTINGS.nodeHeadRadius) + "px " + (SETTINGS.nodeHeadRadius) + "px 0 0";
-  });
-
-  document.querySelectorAll(".wire:not(.temp)").forEach(el => {
-    el.style.strokeWidth = SETTINGS.wireWidth;
-    el.style.opacity = SETTINGS.wireOpacity;
-  });
-
-  document.querySelectorAll(".wire-badge").forEach(el => {
-    el.style.display = SETTINGS.showWireBadges ? "" : "none";
-  });
-
-  applyGridStyle();
-
   document.body.style.fontSize = SETTINGS.uiFontSize + "px";
 
-  const cursorH = document.getElementById("cursor-h");
-  const cursorV = document.getElementById("cursor-v");
-  if (cursorH) cursorH.style.setProperty("--cursor-color", SETTINGS.cursorColor);
-  if (cursorV) cursorV.style.setProperty("--cursor-color", SETTINGS.cursorColor);
-  r.setProperty("--cursor-accent", SETTINGS.cursorColor);
-
   const catEl = document.getElementById("cat-ascii");
-  if (catEl) catEl.style.display = SETTINGS.catAnimation ? "" : "none";
+  const catCornerEl = document.getElementById("cat-corner");
+  if (catCornerEl) catCornerEl.style.display = SETTINGS.catAnimation ? "" : "none";
 
+  applyGridStyle();
+  drawWires();
   saveSettings();
 }
 
 function applyGridStyle() {
   const grid = document.getElementById("grid-bg");
   if (!grid) return;
-  const size = SETTINGS.gridSize;
+  const size = SETTINGS.gridSize * zoom;
   const op = SETTINGS.gridOpacity;
   const col = `rgba(37,37,37,${op})`;
+  grid.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+  grid.style.backgroundSize = `${size}px ${size}px`;
   if (SETTINGS.gridStyle === "none") {
     grid.style.backgroundImage = "none";
   } else if (SETTINGS.gridStyle === "lines") {
     grid.style.backgroundImage = `linear-gradient(${col} 1px, transparent 1px), linear-gradient(90deg, ${col} 1px, transparent 1px)`;
-    grid.style.backgroundSize = `${size * zoom}px ${size * zoom}px`;
   } else {
     grid.style.backgroundImage = `radial-gradient(circle, ${col} 1px, transparent 1px)`;
-    grid.style.backgroundSize = `${size * zoom}px ${size * zoom}px`;
   }
 }
 
@@ -3983,7 +3986,7 @@ document.getElementById("import-go-btn").addEventListener("click", () => {
     dots.textContent = ".".repeat(d + 1);
   }, 350);
 
-  const delay = 1200 + Math.random() * 1800;
+  const delay = SETTINGS.compileDelay ? (1000 + Math.random() * 2000) : 0;
   setTimeout(async () => {
     clearInterval(dotInt);
     try {
