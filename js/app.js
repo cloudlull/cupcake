@@ -3978,81 +3978,102 @@ function appendConsoleEntry(output, level, args, ms) {
 }
 
 function runCode() {
-  const panel = document.getElementById("console-panel");
   const output = document.getElementById("run-output");
   output.innerHTML = "";
   document.getElementById("run-header-label").textContent = "running...";
   document.getElementById("run-dot").classList.remove("err");
+
   let code;
   try {
     code = compileCode();
   } catch (e) {
     appendConsoleEntry(output, "error", ["compile error: " + e.message], 0);
+    document.getElementById("run-header-label").textContent = "compile error";
+    document.getElementById("run-dot").classList.add("err");
     return;
   }
-  const start = performance.now();
-  const _log = console.log;
-  const _error = console.error;
-  const _warn = console.warn;
-  const _info = console.info;
-  const _alert = window.alert;
-  const cap = (level) => (...args) => {
-    const ms = Math.round(performance.now() - start);
-    appendConsoleEntry(output, level, args, ms);
-  };
-  console.log = cap("log");
-  console.error = cap("error");
-  console.warn = cap("warn");
-  console.info = cap("info");
-  window.alert = (msg) => {
-    const ms = Math.round(performance.now() - start);
-    appendConsoleEntry(output, "log", ["[alert] " + String(msg)], ms);
-  };
-  let hadError = false;
-  try {
-    const fn = new Function(code);
-    const result = fn();
-    if (result instanceof Promise) {
-      result.catch((e) => {
-        const ms = Math.round(performance.now() - start);
-        appendConsoleEntry(output, "error", [e], ms);
-        hadError = true;
-        finishRun(output, hadError, start);
-      });
-      result.then(() => finishRun(output, hadError, start));
-    } else {
-      finishRun(output, hadError, start);
-    }
-  } catch (e) {
-    hadError = true;
-    const ms = Math.round(performance.now() - start);
-    appendConsoleEntry(output, "error", [e], ms);
-    finishRun(output, hadError, start);
-  } finally {
-    console.log = _log;
-    console.error = _error;
-    console.warn = _warn;
-    console.info = _info;
-    window.alert = _alert;
-  }
-}
 
-function finishRun(output, hadError, start) {
-  const ms = Math.round(performance.now() - start);
-  const dot = document.getElementById("run-dot");
-  const label = document.getElementById("run-header-label");
-  if (dot) dot.classList.toggle("err", hadError);
-  if (label)
-    label.textContent = hadError
-      ? "finished with errors  " + ms + "ms"
-      : "finished in " + ms + "ms";
-  if (
-    !hadError &&
-    output.querySelectorAll(".console-entry:not(.system)").length === 0
-  ) {
-    appendConsoleEntry(output, "system", ["(no output)"], ms);
-  }
-}
+  const start = performance.now();
+
+  const workerSrc = `
+    const _start = Date.now();
+    const _logs = [];
+
+    const console = {
+      log: (...a) => self.postMessage({ type: "log", level: "log", args: a, ms: Date.now() - _start }),
+      error: (...a) => self.postMessage({ type: "log", level: "error", args: a, ms: Date.now() - _start }),
+      warn: (...a) => self.postMessage({ type: "log", level: "warn", args: a, ms: Date.now() - _start }),
+      info: (...a) => self.postMessage({ type: "log", level: "info", args: a, ms: Date.now() - _start }),
+      table: (...a) => self.postMessage({ type: "log", level: "log", args: a, ms: Date.now() - _start }),
+    };
+
+    function alert(msg) {
+      self.postMessage({ type: "log", level: "log", args: ["[alert] " + String(msg)], ms: Date.now() - _start });
+    }
+
+    try {
+      ${code}
+      self.postMessage({ type: "done", ms: Date.now() - _start });
+    } catch(e) {
+      self.postMessage({ type: "error", msg: e.stack || e.message, ms: Date.now() - _start });
+    }
+  `;
+
+  const blob = new Blob([workerSrc], { type: "application/javascript" });
+  const url = URL.createObjectURL(blob);
+  const worker = new Worker(url);
+
+  const timeout = setTimeout(() => {
+    worker.terminate();
+    URL.revokeObjectURL(url);
+    const ms = Math.round(performance.now() - start);
+    appendConsoleEntry(output, "error", ["execution timed out after 5s — infinite loop?"], ms);
+    document.getElementById("run-dot").classList.add("err");
+    document.getElementById("run-header-label").textContent = "timed out " + ms + "ms";
+  }, 5000);
+
+  worker.addEventListener("message", (e) => {
+    const d = e.data;
+    if (d.type === "log") {
+      appendConsoleEntry(output, d.level, d.args.map(a => {
+        if (a === null) return "null";
+        if (a === undefined) return "undefined";
+        if (typeof a === "object") {
+          try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+        }
+        return String(a);
+      }), d.ms);
+    } else if (d.type === "done") {
+      clearTimeout(timeout);
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      const ms = Math.round(performance.now() - start);
+      document.getElementById("run-dot").classList.remove("err");
+      document.getElementById("run-header-label").textContent = "finished in " + ms + "ms";
+      if (output.querySelectorAll(".console-entry:not(.system)").length === 0) {
+        appendConsoleEntry(output, "system", ["(no output)"], ms);
+      }
+    } else if (d.type === "error") {
+      clearTimeout(timeout);
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      const ms = Math.round(performance.now() - start);
+      appendConsoleEntry(output, "error", [d.msg], d.ms);
+      document.getElementById("run-dot").classList.add("err");
+      document.getElementById("run-header-label").textContent = "finished with errors  " + ms + "ms";
+    }
+  });
+
+  worker.addEventListener("error", (e) => {
+    clearTimeout(timeout);
+    worker.terminate();
+    URL.revokeObjectURL(url);
+    const ms = Math.round(performance.now() - start);
+    appendConsoleEntry(output, "error", [e.message || "worker error"], ms);
+    document.getElementById("run-dot").classList.add("err");
+    document.getElementById("run-header-label").textContent = "finished with errors  " + ms + "ms";
+  });
+};
 
 document.getElementById("run-btn").addEventListener("click", runCode);
 document.getElementById("run-clear-btn").addEventListener("click", () => {
