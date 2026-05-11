@@ -2507,27 +2507,6 @@ function nukeAll() {
   multiSel.clear(); drawWires(); showHint();
 }
 
-async function saveSlot(slot) {
-  closeAllDD();
-  await dbSet(slot, JSON.stringify({ nodes, conns, frames, nid }));
-  await refreshIndicators();
-  toast(`saved to slot ${slot}`);
-}
-
-async function loadSlot(slot) {
-  closeAllDD();
-  const raw = await dbGet(slot);
-  if (!raw) { toast(`slot ${slot} is empty`); return; }
-  const data = JSON.parse(raw);
-  nukeAll();
-  nodes = data.nodes || {}; conns = data.conns || {};
-  frames = data.frames || {}; nid = data.nid || 100;
-  document.querySelectorAll(".frame").forEach(e => e.remove());
-  Object.keys(frames).forEach(id => renderFrame(id));
-  Object.keys(nodes).forEach(id => renderNode(id));
-  drawWires(); showHint(); toast(`loaded slot ${slot}`);
-}
-
 function renderNode(id) {
   const n = nodes[id];
   const def = TYPES[n.type];
@@ -3111,26 +3090,6 @@ function switchTab(tabId) {
     .forEach((p) => p.classList.toggle("active", p.id === "pane-" + tabId));
 }
 
-function buildSaveLoad() {
-  const saveMenu = document.getElementById("save-dd-menu");
-  const loadMenu = document.getElementById("load-dd-menu");
-  for (let i = 1; i <= 5; i++) {
-    const sr = document.createElement("div");
-    sr.className = "dd-row";
-    sr.id = `save-s${i}`;
-    sr.innerHTML = `<span class="dd-dot-fill"></span> slot ${i}`;
-    sr.addEventListener("click", () => saveSlot(i));
-    saveMenu.appendChild(sr);
-
-    const lr = document.createElement("div");
-    lr.className = "dd-row";
-    lr.id = `load-s${i}`;
-    lr.innerHTML = `<span class="dd-dot-fill"></span> slot ${i}`;
-    lr.addEventListener("click", () => loadSlot(i));
-    loadMenu.appendChild(lr);
-  }
-}
-
 document
   .getElementById("save-btn")
   .addEventListener("click", () => toggleDD("save-dd-menu"));
@@ -3278,31 +3237,203 @@ function dbSet(slot, data) {
 
 function dbGet(slot) {
   return new Promise((res) => {
-    const req = db
-      .transaction("slots", "readonly")
-      .objectStore("slots")
-      .get(slot);
+    const req = db.transaction("slots", "readonly").objectStore("slots").get(slot);
     req.onsuccess = (e) => res(e.target.result?.data || null);
+  });
+}
+
+function dbGetMeta(slot) {
+  return new Promise((res) => {
+    const req = db.transaction("slots", "readonly").objectStore("slots").get(slot);
+    req.onsuccess = (e) => res(e.target.result || null);
+  });
+}
+
+function dbSetMeta(slot, data, name) {
+  return new Promise((res) => {
+    const tx = db.transaction("slots", "readwrite");
+    tx.objectStore("slots").put({ slot, data, name });
+    tx.oncomplete = res;
   });
 }
 
 function dbKeys() {
   return new Promise((res) => {
-    const req = db
-      .transaction("slots", "readonly")
-      .objectStore("slots")
-      .getAllKeys();
+    const req = db.transaction("slots", "readonly").objectStore("slots").getAllKeys();
     req.onsuccess = (e) => res(e.target.result);
   });
 }
 
-async function refreshIndicators() {
-  const filled = await dbKeys();
-  for (let i = 1; i <= 5; i++) {
-    const has = filled.includes(i);
-    document.getElementById(`save-s${i}`)?.classList.toggle("filled", has);
-    document.getElementById(`load-s${i}`)?.classList.toggle("filled", has);
+async function slotHasContent(slot) {
+  const raw = await dbGet(slot);
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    return Object.keys(data.nodes || {}).length > 0 || Object.keys(data.conns || {}).length > 0;
+  } catch {
+    return false;
   }
+}
+
+async function saveSlot(slot) {
+  closeAllDD();
+  const meta = await dbGetMeta(slot);
+  const name = meta?.name || null;
+  await dbSetMeta(slot, JSON.stringify({ nodes, conns, frames, nid }), name);
+  await refreshIndicators();
+  toast(`saved to slot ${slot}`);
+}
+
+async function loadSlot(slot) {
+  closeAllDD();
+  const raw = await dbGet(slot);
+  if (!raw) { toast(`slot ${slot} is empty`); return; }
+  const data = JSON.parse(raw);
+  nukeAll();
+  nodes = data.nodes || {}; conns = data.conns || {};
+  frames = data.frames || {}; nid = data.nid || 100;
+  document.querySelectorAll(".frame").forEach(e => e.remove());
+  Object.keys(frames).forEach(id => renderFrame(id));
+  Object.keys(nodes).forEach(id => renderNode(id));
+  drawWires(); showHint(); toast(`loaded slot ${slot}`);
+}
+
+async function renameSlot(slot, newName) {
+  const raw = await dbGet(slot);
+  if (!raw) return;
+  await dbSetMeta(slot, raw, newName.trim() || null);
+  await refreshIndicators();
+}
+
+async function refreshIndicators() {
+  for (let i = 1; i <= 5; i++) {
+    const has = await slotHasContent(i);
+    const meta = await dbGetMeta(i);
+    const name = meta?.name || null;
+    const label = name ? name : `slot ${i}`;
+
+    const saveRow = document.getElementById(`save-s${i}`);
+    const loadRow = document.getElementById(`load-s${i}`);
+
+    if (saveRow) {
+      saveRow.classList.toggle("filled", has);
+      const span = saveRow.querySelector(".dd-slot-label");
+      if (span) span.textContent = label;
+    }
+    if (loadRow) {
+      loadRow.classList.toggle("filled", has);
+      const span = loadRow.querySelector(".dd-slot-label");
+      if (span) span.textContent = label;
+    }
+  }
+}
+
+function buildSaveLoad() {
+  const saveMenu = document.getElementById("save-dd-menu");
+  const loadMenu = document.getElementById("load-dd-menu");
+
+  for (let i = 1; i <= 5; i++) {
+    const sr = document.createElement("div");
+    sr.className = "dd-row";
+    sr.id = `save-s${i}`;
+
+    const dot = document.createElement("span");
+    dot.className = "dd-dot-fill";
+
+    const lbl = document.createElement("span");
+    lbl.className = "dd-slot-label";
+    lbl.textContent = `slot ${i}`;
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "dd-rename-btn";
+    renameBtn.textContent = "rename";
+    renameBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openRenamePopup(i, renameBtn);
+    });
+
+    sr.appendChild(dot);
+    sr.appendChild(lbl);
+    sr.appendChild(renameBtn);
+    sr.addEventListener("click", () => saveSlot(i));
+    saveMenu.appendChild(sr);
+
+    const lr = document.createElement("div");
+    lr.className = "dd-row";
+    lr.id = `load-s${i}`;
+
+    const dot2 = document.createElement("span");
+    dot2.className = "dd-dot-fill";
+
+    const lbl2 = document.createElement("span");
+    lbl2.className = "dd-slot-label";
+    lbl2.textContent = `slot ${i}`;
+
+    const renameBtn2 = document.createElement("button");
+    renameBtn2.className = "dd-rename-btn";
+    renameBtn2.textContent = "rename";
+    renameBtn2.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openRenamePopup(i, renameBtn2);
+    });
+
+    lr.appendChild(dot2);
+    lr.appendChild(lbl2);
+    lr.appendChild(renameBtn2);
+    lr.addEventListener("click", () => loadSlot(i));
+    loadMenu.appendChild(lr);
+  }
+}
+
+function openRenamePopup(slot, anchor) {
+  document.querySelectorAll(".rename-popup").forEach(p => p.remove());
+
+  const popup = document.createElement("div");
+  popup.className = "rename-popup";
+
+  const inp = document.createElement("input");
+  inp.className = "rename-input";
+  inp.placeholder = `slot ${slot}`;
+  inp.maxLength = 24;
+  inp.addEventListener("mousedown", e => e.stopPropagation());
+  inp.addEventListener("click", e => e.stopPropagation());
+
+  dbGetMeta(slot).then(meta => {
+    inp.value = meta?.name || "";
+    inp.focus();
+    inp.select();
+  });
+
+  const ok = document.createElement("button");
+  ok.className = "rename-ok";
+  ok.textContent = "ok";
+  ok.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await renameSlot(slot, inp.value);
+    popup.remove();
+    toast(`slot ${slot} renamed`);
+  });
+
+  inp.addEventListener("keydown", async (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") ok.click();
+    if (e.key === "Escape") popup.remove();
+  });
+
+  popup.appendChild(inp);
+  popup.appendChild(ok);
+
+  const rect = anchor.getBoundingClientRect();
+  popup.style.top = (rect.bottom + 4) + "px";
+  popup.style.left = rect.left + "px";
+  document.body.appendChild(popup);
+
+  setTimeout(() => {
+    document.addEventListener("click", function handler() {
+      popup.remove();
+      document.removeEventListener("click", handler);
+    }, { once: true });
+  }, 0);
 }
 
 async function boot() {
