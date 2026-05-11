@@ -1148,33 +1148,43 @@ input, select, textarea, button, a {
   border-radius: 1px;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.12s, height 0.12s, opacity 0.12s, background 0.12s;
+  transition: width 0.08s, height 0.08s, opacity 0.08s, background 0.08s, border-radius 0.08s;
 }
 
-#cursor-h { width: 12px; height: 2px; }
-#cursor-v { width: 2px; height: 12px; }
+#cursor-h {
+  width: 12px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+}
+#cursor-v {
+  width: 2px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+}
 
-#cursor.state-text #cursor-h { width: 2px; height: 18px; }
-#cursor.state-text #cursor-v { width: 2px; height: 18px; opacity: 0; }
+#cursor.state-text #cursor-h { width: 2px; height: 18px; transform: translate(-50%, -50%); }
+#cursor.state-text #cursor-v { opacity: 0; transform: translate(-50%, -50%); }
 
-#cursor.state-pointer #cursor-h { width: 8px; height: 8px; border-radius: 50%; }
-#cursor.state-pointer #cursor-v { opacity: 0; }
+#cursor.state-pointer #cursor-h { width: 7px; height: 7px; border-radius: 50%; transform: translate(-50%, -50%); }
+#cursor.state-pointer #cursor-v { opacity: 0; transform: translate(-50%, -50%); }
 
-#cursor.state-grab #cursor-h  { width: 14px; height: 2px; background: var(--cream2); }
-#cursor.state-grab #cursor-v  { width: 2px; height: 14px; background: var(--cream2); }
+#cursor.state-grab #cursor-h { width: 14px; height: 2px; background: var(--cream2); transform: translate(-50%, -50%); }
+#cursor.state-grab #cursor-v { width: 2px; height: 14px; background: var(--cream2); transform: translate(-50%, -50%); }
 
-#cursor.state-crosshair #cursor-h { width: 16px; height: 1px; background: var(--accent2); }
-#cursor.state-crosshair #cursor-v { width: 1px; height: 16px; background: var(--accent2); }
+#cursor.state-crosshair #cursor-h { width: 18px; height: 1px; background: var(--accent2); transform: translate(-50%, -50%); }
+#cursor.state-crosshair #cursor-v { width: 1px; height: 18px; background: var(--accent2); transform: translate(-50%, -50%); }
 
-#cursor.state-ns #cursor-h { width: 2px; height: 16px; }
-#cursor.state-ns #cursor-v { opacity: 0; }
+#cursor.state-ns #cursor-h { width: 2px; height: 18px; transform: translate(-50%, -50%); }
+#cursor.state-ns #cursor-v { opacity: 0; transform: translate(-50%, -50%); }
 
-#cursor.state-ew #cursor-h { width: 16px; height: 2px; }
-#cursor.state-ew #cursor-v { opacity: 0; }
+#cursor.state-ew #cursor-h { width: 18px; height: 2px; transform: translate(-50%, -50%); }
+#cursor.state-ew #cursor-v { opacity: 0; transform: translate(-50%, -50%); }
 
-#cursor.big #cursor-h { width: 20px; height: 2px; }
-#cursor.big #cursor-v { width: 2px; height: 20px; }
+#cursor.state-se #cursor-h { width: 18px; height: 2px; transform: translate(-50%, -50%) rotate(-45deg); }
+#cursor.state-se #cursor-v { width: 2px; height: 18px; transform: translate(-50%, -50%) rotate(-45deg); opacity: 1; }
+
+#cursor.big #cursor-h { width: 20px; height: 2px; transform: translate(-50%, -50%); }
+#cursor.big #cursor-v { width: 2px; height: 20px; transform: translate(-50%, -50%); }
 
 .frame {
   position: absolute;
@@ -1272,9 +1282,6 @@ input, select, textarea, button, a {
   right: 0;
   height: 26px;
 }
-
-#cursor.state-se #cursor-h { width: 16px; height: 2px; background: var(--accent); transform: translate(-50%,-50%) rotate(-45deg); }
-#cursor.state-se #cursor-v { width: 2px; height: 8px; background: var(--accent); transform: translate(-50%,-50%) rotate(-45deg); }
 
 #minimap {
   position: fixed;
