@@ -1689,3 +1689,22 @@ a {
   stroke-width: 2.5;
   stroke-dasharray: none;
 }
+
+.dd-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 10px;
+  min-width: 140px;
+  display: none;
+  z-index: 200;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  overflow-y: auto;
+  max-height: min(480px, 80vh);
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--b2) transparent;
+}

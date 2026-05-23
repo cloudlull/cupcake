@@ -1456,45 +1456,149 @@ const TYPES = {
     expr: true,
     gen: (n, ge) => `${ge(n.id, "arr")}.indexOf(${ge(n.id, "val")})`,
   },
-  arr_flat: {
-    label: "flat",
+  arr_map: {
+    label: "map",
     cat: "arrays",
     col: "var(--col-array)",
-    fields: [{ id: "depth", label: "depth", kind: "number", def: "1" }],
-    ins: [{ id: "arr", label: "array" }],
+    fields: [{ id: "fn", label: "fn (or wire)", kind: "text", def: "x => x" }],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "fn_port", label: "fn (wired)" },
+    ],
     outs: [{ id: "out", label: "out" }],
     expr: true,
-    gen: (n, ge) => `${ge(n.id, "arr")}.flat(${n.f.depth || 1})`,
+    gen: (n, ge) => {
+      const wired = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "fn_port",
+      );
+      return `${ge(n.id, "arr")}.map(${wired ? ge(n.id, "fn_port") : n.f.fn || "x => x"})`;
+    },
+  },
+  arr_filter: {
+    label: "filter",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [
+      { id: "fn", label: "predicate (or wire)", kind: "text", def: "x => x" },
+    ],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "fn_port", label: "fn (wired)" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => {
+      const wired = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "fn_port",
+      );
+      return `${ge(n.id, "arr")}.filter(${wired ? ge(n.id, "fn_port") : n.f.fn || "x => x"})`;
+    },
+  },
+  arr_find: {
+    label: "find",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [
+      { id: "fn", label: "predicate (or wire)", kind: "text", def: "x => x" },
+    ],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "fn_port", label: "fn (wired)" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => {
+      const wired = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "fn_port",
+      );
+      return `${ge(n.id, "arr")}.find(${wired ? ge(n.id, "fn_port") : n.f.fn || "x => x"})`;
+    },
+  },
+  arr_reduce: {
+    label: "reduce",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [
+      {
+        id: "fn",
+        label: "reducer (or wire)",
+        kind: "text",
+        def: "(acc, x) => acc + x",
+      },
+      { id: "init", label: "initial value", kind: "text", def: "0" },
+    ],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "fn_port", label: "fn (wired)" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => {
+      const wired = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "fn_port",
+      );
+      return `${ge(n.id, "arr")}.reduce(${wired ? ge(n.id, "fn_port") : n.f.fn || "(acc,x)=>acc+x"}, ${n.f.init || "0"})`;
+    },
   },
   arr_flatmap: {
-    label: "flatMap",
+    label: "flatmap",
     cat: "arrays",
     col: "var(--col-array)",
-    fields: [{ id: "fn", label: "callback", kind: "text", def: "x => x" }],
-    ins: [{ id: "arr", label: "array" }],
+    fields: [
+      { id: "fn", label: "callback (or wire)", kind: "text", def: "x => x" },
+    ],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "fn_port", label: "fn (wired)" },
+    ],
     outs: [{ id: "out", label: "out" }],
     expr: true,
-    gen: (n, ge) => `${ge(n.id, "arr")}.flatMap(${n.f.fn || "x => x"})`,
+    gen: (n, ge) => {
+      const wired = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "fn_port",
+      );
+      return `${ge(n.id, "arr")}.flatMap(${wired ? ge(n.id, "fn_port") : n.f.fn || "x => x"})`;
+    },
   },
   arr_every: {
     label: "every",
     cat: "arrays",
     col: "var(--col-array)",
-    fields: [{ id: "fn", label: "predicate", kind: "text", def: "x => x" }],
-    ins: [{ id: "arr", label: "array" }],
+    fields: [
+      { id: "fn", label: "predicate (or wire)", kind: "text", def: "x => x" },
+    ],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "fn_port", label: "fn (wired)" },
+    ],
     outs: [{ id: "out", label: "out" }],
     expr: true,
-    gen: (n, ge) => `${ge(n.id, "arr")}.every(${n.f.fn || "x => x"})`,
+    gen: (n, ge) => {
+      const wired = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "fn_port",
+      );
+      return `${ge(n.id, "arr")}.every(${wired ? ge(n.id, "fn_port") : n.f.fn || "x => x"})`;
+    },
   },
   arr_some: {
     label: "some",
     cat: "arrays",
     col: "var(--col-array)",
-    fields: [{ id: "fn", label: "predicate", kind: "text", def: "x => x" }],
-    ins: [{ id: "arr", label: "array" }],
+    fields: [
+      { id: "fn", label: "predicate (or wire)", kind: "text", def: "x => x" },
+    ],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "fn_port", label: "fn (wired)" },
+    ],
     outs: [{ id: "out", label: "out" }],
     expr: true,
-    gen: (n, ge) => `${ge(n.id, "arr")}.some(${n.f.fn || "x => x"})`,
+    gen: (n, ge) => {
+      const wired = Object.values(conns).find(
+        (c) => c.tn === n.id && c.tp === "fn_port",
+      );
+      return `${ge(n.id, "arr")}.some(${wired ? ge(n.id, "fn_port") : n.f.fn || "x => x"})`;
+    },
   },
   arr_sort: {
     label: "sort",
@@ -2219,6 +2323,275 @@ const TYPES = {
         (c) => c.tn === n.id && c.tp === "a1",
       );
       return `(function ${n.f.name || "macro"}(${c0 ? "__a0" : ""}, ${c1 ? "__a1" : ""}) {\n  ${n.f.code || ""}\n})(${c0 ? ge(n.id, "a0") : ""}${c0 && c1 ? ", " : ""}${c1 ? ge(n.id, "a1") : ""})`;
+    },
+  },
+  arr_findindex: {
+    label: "findindex",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [{ id: "fn", label: "predicate", kind: "text", def: "x => x" }],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.findIndex(${n.f.fn || "x => x"})`,
+  },
+  arr_findlast: {
+    label: "findlast",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [{ id: "fn", label: "predicate", kind: "text", def: "x => x" }],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.findLast(${n.f.fn || "x => x"})`,
+  },
+  arr_at: {
+    label: "arr.at()",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "idx", label: "index" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.at(${ge(n.id, "idx")})`,
+  },
+  arr_shift: {
+    label: "shift",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "arr")}.shift()`,
+  },
+  arr_unshift: {
+    label: "unshift",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [
+      { id: "arr", label: "array" },
+      { id: "val", label: "value" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) =>
+      `(${ge(n.id, "arr")}.unshift(${ge(n.id, "val")}), ${ge(n.id, "arr")})`,
+  },
+  arr_splice: {
+    label: "splice",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [
+      { id: "start", label: "start", kind: "number", def: "0" },
+      { id: "deleteCount", label: "delete count", kind: "number", def: "1" },
+    ],
+    ins: [{ id: "arr", label: "array" }],
+    outs: [{ id: "out", label: "removed" }],
+    expr: true,
+    gen: (n, ge) =>
+      `${ge(n.id, "arr")}.splice(${n.f.start || "0"}, ${n.f.deleteCount || "1"})`,
+  },
+  arr_of: {
+    label: "array.of",
+    cat: "arrays",
+    col: "var(--col-array)",
+    fields: [],
+    ins: [
+      { id: "v0", label: "val 1" },
+      { id: "v1", label: "val 2" },
+      { id: "v2", label: "val 3" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => {
+      const args = ["v0", "v1", "v2"]
+        .filter((v) =>
+          Object.values(conns).find((c) => c.tn === n.id && c.tp === v),
+        )
+        .map((v) => ge(n.id, v));
+      return `Array.of(${args.join(", ")})`;
+    },
+  },
+  str_at: {
+    label: "str.at()",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "idx", label: "index" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.at(${ge(n.id, "idx")})`,
+  },
+  str_trimstart: {
+    label: "trimstart",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [{ id: "str", label: "string" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.trimStart()`,
+  },
+  str_trimend: {
+    label: "trimend",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [{ id: "str", label: "string" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.trimEnd()`,
+  },
+  str_fromcharcode: {
+    label: "string.fromcharcode",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [{ id: "code", label: "char code" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `String.fromCharCode(${ge(n.id, "code")})`,
+  },
+  str_charcodeat: {
+    label: "charcodeat",
+    cat: "strings",
+    col: "var(--col-string)",
+    fields: [],
+    ins: [
+      { id: "str", label: "string" },
+      { id: "idx", label: "index" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `${ge(n.id, "str")}.charCodeAt(${ge(n.id, "idx")})`,
+  },
+  num_tofixed: {
+    label: "tofixed",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [{ id: "digits", label: "digits", kind: "number", def: "2" }],
+    ins: [{ id: "val", label: "number" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `(${ge(n.id, "val")}).toFixed(${n.f.digits ?? "2"})`,
+  },
+  math_sign: {
+    label: "math.sign",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.sign(${ge(n.id, "a")})`,
+  },
+  math_trunc: {
+    label: "math.trunc",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [{ id: "a", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.trunc(${ge(n.id, "a")})`,
+  },
+  math_hypot: {
+    label: "math.hypot",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "a", label: "a" },
+      { id: "b", label: "b" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Math.hypot(${ge(n.id, "a")}, ${ge(n.id, "b")})`,
+  },
+  math_clamp: {
+    label: "clamp",
+    cat: "math",
+    col: "var(--col-math)",
+    fields: [],
+    ins: [
+      { id: "val", label: "value" },
+      { id: "min", label: "min" },
+      { id: "max", label: "max" },
+    ],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) =>
+      `Math.min(Math.max(${ge(n.id, "val")}, ${ge(n.id, "min")}), ${ge(n.id, "max")})`,
+  },
+  structured_clone: {
+    label: "structuredclone",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [],
+    ins: [{ id: "val", label: "value" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `structuredClone(${ge(n.id, "val")})`,
+  },
+  obj_fromEntries: {
+    label: "object.fromentries",
+    cat: "objects",
+    col: "var(--col-obj)",
+    fields: [],
+    ins: [{ id: "entries", label: "entries" }],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n, ge) => `Object.fromEntries(${ge(n.id, "entries")})`,
+  },
+  symbol_node: {
+    label: "symbol",
+    cat: "values",
+    col: "var(--col-val)",
+    fields: [{ id: "desc", label: "description", kind: "text", def: "" }],
+    ins: [],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: (n) => (n.f.desc ? `Symbol("${n.f.desc}")` : `Symbol()`),
+  },
+  performance_now: {
+    label: "performance.now()",
+    cat: "date",
+    col: "var(--col-date)",
+    fields: [],
+    ins: [],
+    outs: [{ id: "out", label: "out" }],
+    expr: true,
+    gen: () => `performance.now()`,
+  },
+  console_log_multi: {
+    label: "console.log (multi)",
+    cat: "output",
+    col: "var(--col-out)",
+    fields: [],
+    ins: [
+      { id: "v0", label: "val 1" },
+      { id: "v1", label: "val 2" },
+      { id: "v2", label: "val 3" },
+      { id: "v3", label: "val 4" },
+    ],
+    outs: [],
+    expr: false,
+    stmt: true,
+    gen: (n, ge) => {
+      const args = ["v0", "v1", "v2", "v3"]
+        .filter((v) =>
+          Object.values(conns).find((c) => c.tn === n.id && c.tp === v),
+        )
+        .map((v) => ge(n.id, v));
+      return `console.log(${args.join(", ")});`;
     },
   },
   asset_ref: {

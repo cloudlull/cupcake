@@ -230,21 +230,33 @@ function bezier(x1, y1, x2, y2) {
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
-function getWireExpr(nodeId, portId) {
+function getWireExpr(nodeId, portId, _visiting = new Set()) {
   if (!nodeId || !nodes[nodeId]) return "?";
   const src = nodes[nodeId];
   const def = TYPES[src?.type];
   if (!def) return "?";
-  if (def.ref) return def.ref(src);
-  if (def.expr) {
+  const key = nodeId + ":" + portId;
+  if (_visiting.has(key)) return "↺";
+  _visiting.add(key);
+  let result;
+  if (def.ref) {
+    result = def.ref(src);
+  } else if (def.expr) {
     function ge(nid, pid) {
       const c = Object.values(conns).find((c) => c.tn === nid && c.tp === pid);
       if (!c) return "…";
-      return getWireExpr(c.fn, c.fp);
+      return getWireExpr(c.fn, c.fp, _visiting);
     }
-    return def.gen(src, ge);
+    try {
+      result = def.gen(src, ge);
+    } catch {
+      result = "?";
+    }
+  } else {
+    result = src.type;
   }
-  return src.type;
+  _visiting.delete(key);
+  return result;
 }
 
 function drawWires() {
@@ -331,10 +343,16 @@ function drawWires() {
 }
 
 function refreshPortStates() {
-  document.querySelectorAll(".port").forEach((p) => p.classList.remove("live"));
+  const livePorts = new Set();
   Object.values(conns).forEach((c) => {
-    portEl(c.fn, "out", c.fp)?.classList.add("live");
-    portEl(c.tn, "in", c.tp)?.classList.add("live");
+    livePorts.add(`p-${c.fn}-out-${c.fp}`);
+    livePorts.add(`p-${c.tn}-in-${c.tp}`);
+  });
+  document.querySelectorAll(".port.live").forEach((p) => {
+    if (!livePorts.has(p.id)) p.classList.remove("live");
+  });
+  livePorts.forEach((id) => {
+    document.getElementById(id)?.classList.add("live");
   });
 }
 
@@ -402,8 +420,10 @@ function deleteNode(id) {
 }
 
 function snapshot() {
-  history.push(JSON.stringify({ nodes, conns, frames, nid }));
-  if (history.length > 60) history.shift();
+  const s = JSON.stringify({ nodes, conns, frames, nid });
+  if (history.length && history[history.length - 1] === s) return;
+  history.push(s);
+  if (history.length > 100) history.shift();
   future = [];
 }
 
@@ -816,7 +836,7 @@ function renderNode(id) {
       inp = document.createElement("input");
       inp.className = "nfinput";
       inp.type = fld.kind === "number" ? "number" : "text";
-      inp.value = n.f[fld.id] || "";
+      inp.value = n.f[fld.id] ?? fld.def ?? "";
     }
     inp.addEventListener("input", (e) => {
       n.f[fld.id] = e.target.value;
@@ -824,6 +844,14 @@ function renderNode(id) {
     inp.addEventListener("change", (e) => {
       n.f[fld.id] = e.target.value;
     });
+    if (fld.kind === "number") {
+      inp.addEventListener("blur", () => {
+        if (inp.value === "" || isNaN(Number(inp.value))) {
+          inp.value = fld.def ?? "0";
+          n.f[fld.id] = inp.value;
+        }
+      });
+    }
     inp.addEventListener("mousedown", (e) => e.stopPropagation());
     fdiv.appendChild(inp);
     body.appendChild(fdiv);
@@ -831,14 +859,11 @@ function renderNode(id) {
 
   const portSec = document.createElement("div");
   portSec.className = "ports-wrap";
-
   const lcol = document.createElement("div");
   lcol.className = "pcol";
-
   const rcol = document.createElement("div");
   rcol.className = "pcol right";
 
-  // exec in ports
   const execIns =
     def.execIns || (def.stmt ? [{ id: "__exec_in", label: "" }] : []);
   execIns.forEach((p) => {
@@ -872,7 +897,6 @@ function renderNode(id) {
     });
   });
 
-  // data in ports
   def.ins.forEach((p) => {
     const row = document.createElement("div");
     row.className = "prow";
@@ -905,7 +929,6 @@ function renderNode(id) {
 
   portSec.appendChild(lcol);
 
-  // exec out ports
   const execOuts =
     def.execOuts || (def.stmt ? [{ id: "__exec_out", label: "" }] : []);
   execOuts.forEach((p) => {
@@ -933,7 +956,6 @@ function renderNode(id) {
     });
   });
 
-  // data out ports
   def.outs.forEach((p) => {
     const row = document.createElement("div");
     row.className = "prow right";
@@ -997,6 +1019,50 @@ function renderNode(id) {
     }
   });
   wrap.addEventListener("mousedown", (e) => selectNode(id, e.shiftKey));
+}
+
+function exportGraph() {
+  const payload = JSON.stringify({ nodes, conns, frames, nid }, null, 2);
+  const blob = new Blob([payload], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cupcake-graph.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("graph exported");
+}
+
+function importGraph() {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = ".json";
+  inp.addEventListener("change", () => {
+    const file = inp.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.nodes) throw new Error("invalid graph file");
+        snapshot();
+        nukeAll();
+        nodes = data.nodes || {};
+        conns = data.conns || {};
+        frames = data.frames || {};
+        nid = data.nid || 100;
+        Object.keys(frames).forEach((id) => renderFrame(id));
+        Object.keys(nodes).forEach((id) => renderNode(id));
+        drawWires();
+        showHint();
+        toast("graph imported");
+      } catch {
+        toast("invalid file");
+      }
+    };
+    reader.readAsText(file);
+  });
+  inp.click();
 }
 
 function selectNode(id, shift) {
@@ -1339,6 +1405,8 @@ document.getElementById("home-btn").addEventListener("click", () => {
 });
 
 function compileCode() {
+  const visiting = new Set();
+
   function getExpr(nodeId, portId) {
     const c = Object.values(conns).find(
       (c) => c.tn === nodeId && c.tp === portId && c.kind !== "exec",
@@ -1347,9 +1415,15 @@ function compileCode() {
     const src = nodes[c.fn];
     const def = TYPES[src?.type];
     if (!def) return "/* error */";
-    if (def.ref) return def.ref(src);
-    if (def.expr) return def.gen(src, getExpr);
-    return "/* non-expr */";
+    const key = c.fn + ":" + c.fp;
+    if (visiting.has(key)) return "/* cycle */";
+    visiting.add(key);
+    let result;
+    if (def.ref) result = def.ref(src);
+    else if (def.expr) result = def.gen(src, getExpr);
+    else result = "/* non-expr */";
+    visiting.delete(key);
+    return result;
   }
 
   function compileNode(node) {
@@ -1404,8 +1478,7 @@ function compileCode() {
     return "// connect ▶ start to something";
   }
 
-  // fallback: Y-sort for graphs without a start node
-  const sorted = Object.values(nodes).sort((a, b) => a.y - b.y);
+  const sorted = topoSort(nodes, conns);
   const lines = [];
   sorted.forEach((n) => {
     const def = TYPES[n.type];
@@ -1426,6 +1499,39 @@ function closeAllDD() {
   document
     .querySelectorAll(".dd-menu")
     .forEach((m) => m.classList.remove("open"));
+}
+
+function topoSort(nodeMap, connMap) {
+  const ids = Object.keys(nodeMap);
+  const inDegree = {};
+  const adj = {};
+  ids.forEach((id) => {
+    inDegree[id] = 0;
+    adj[id] = [];
+  });
+  Object.values(connMap).forEach((c) => {
+    if (c.kind === "exec") return;
+    if (!nodeMap[c.fn] || !nodeMap[c.tn]) return;
+    if (!adj[c.fn].includes(c.tn)) {
+      adj[c.fn].push(c.tn);
+      inDegree[c.tn]++;
+    }
+  });
+  const queue = ids.filter((id) => inDegree[id] === 0);
+  const result = [];
+  while (queue.length) {
+    const id = queue.shift();
+    result.push(id);
+    adj[id].forEach((next) => {
+      inDegree[next]--;
+      if (inDegree[next] === 0) queue.push(next);
+    });
+  }
+  const resultSet = new Set(result);
+  ids.forEach((id) => {
+    if (!resultSet.has(id)) result.push(id);
+  });
+  return result.map((id) => nodeMap[id]);
 }
 
 function toggleDD(id) {
@@ -1772,15 +1878,13 @@ async function renameSlot(slot, newName) {
 }
 
 async function refreshIndicators() {
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 15; i++) {
     const has = await slotHasContent(i);
     const meta = await dbGetMeta(i);
     const name = meta?.name || null;
     const label = name ? name : `slot ${i}`;
-
     const saveRow = document.getElementById(`save-s${i}`);
     const loadRow = document.getElementById(`load-s${i}`);
-
     if (saveRow) {
       saveRow.classList.toggle("filled", has);
       const span = saveRow.querySelector(".dd-slot-label");
@@ -1798,18 +1902,15 @@ function buildSaveLoad() {
   const saveMenu = document.getElementById("save-dd-menu");
   const loadMenu = document.getElementById("load-dd-menu");
 
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 15; i++) {
     const sr = document.createElement("div");
     sr.className = "dd-row";
     sr.id = `save-s${i}`;
-
     const dot = document.createElement("span");
     dot.className = "dd-dot-fill";
-
     const lbl = document.createElement("span");
     lbl.className = "dd-slot-label";
     lbl.textContent = `slot ${i}`;
-
     const renameBtn = document.createElement("button");
     renameBtn.className = "dd-rename-btn";
     renameBtn.textContent = "rename";
@@ -1817,7 +1918,6 @@ function buildSaveLoad() {
       e.stopPropagation();
       openRenamePopup(i, renameBtn);
     });
-
     sr.appendChild(dot);
     sr.appendChild(lbl);
     sr.appendChild(renameBtn);
@@ -1827,14 +1927,11 @@ function buildSaveLoad() {
     const lr = document.createElement("div");
     lr.className = "dd-row";
     lr.id = `load-s${i}`;
-
     const dot2 = document.createElement("span");
     dot2.className = "dd-dot-fill";
-
     const lbl2 = document.createElement("span");
     lbl2.className = "dd-slot-label";
     lbl2.textContent = `slot ${i}`;
-
     const renameBtn2 = document.createElement("button");
     renameBtn2.className = "dd-rename-btn";
     renameBtn2.textContent = "rename";
@@ -1842,13 +1939,36 @@ function buildSaveLoad() {
       e.stopPropagation();
       openRenamePopup(i, renameBtn2);
     });
-
     lr.appendChild(dot2);
     lr.appendChild(lbl2);
     lr.appendChild(renameBtn2);
     lr.addEventListener("click", () => loadSlot(i));
     loadMenu.appendChild(lr);
   }
+
+  const sep1 = document.createElement("div");
+  sep1.style.cssText = "height:1px;background:var(--b1);margin:4px 0;";
+  saveMenu.appendChild(sep1);
+  const exportRow = document.createElement("div");
+  exportRow.className = "dd-row";
+  exportRow.textContent = "export json ↓";
+  exportRow.addEventListener("click", () => {
+    closeAllDD();
+    exportGraph();
+  });
+  saveMenu.appendChild(exportRow);
+
+  const sep2 = document.createElement("div");
+  sep2.style.cssText = "height:1px;background:var(--b1);margin:4px 0;";
+  loadMenu.appendChild(sep2);
+  const importRow = document.createElement("div");
+  importRow.className = "dd-row";
+  importRow.textContent = "import json ↑";
+  importRow.addEventListener("click", () => {
+    closeAllDD();
+    importGraph();
+  });
+  loadMenu.appendChild(importRow);
 }
 
 function openRenamePopup(slot, anchor) {
@@ -2661,6 +2781,7 @@ async function parseJSIntoNodes(code) {
 
   const ast = window.acorn.parse(code, { ecmaVersion: 2022 });
   let count = 0;
+  const unhandled = new Set();
   const existingCount = Object.keys(nodes).length;
   const baseX = (existingCount % 4) * 240 + 80;
   const baseY = 80 + Math.floor(existingCount / 4) * 200;
@@ -2821,6 +2942,14 @@ async function parseJSIntoNodes(code) {
             min: "min",
             max: "max",
             pow: "power",
+            sign: "math_sign",
+            trunc: "math_trunc",
+            sqrt: "sqrt",
+            log: "log_math",
+            sin: "sin",
+            cos: "cos",
+            tan: "tan",
+            hypot: "math_hypot",
           };
           if (mathMap[prop]) {
             const nid = placeNode(mathMap[prop], x, y, {});
@@ -2853,50 +2982,105 @@ async function parseJSIntoNodes(code) {
         }
 
         if (obj.type === "Identifier" && obj.name === "Object") {
-          if (prop === "keys") {
-            const nid = placeNode("obj_keys", x, y, {});
+          const objMap = {
+            keys: "obj_keys",
+            values: "obj_values",
+            entries: "obj_entries",
+            assign: "obj_assign",
+            freeze: "obj_freeze",
+            fromEntries: "obj_fromEntries",
+          };
+          if (objMap[prop]) {
+            const nid = placeNode(objMap[prop], x, y, {});
             if (node.arguments[0]) {
               const aid = exprToNode(node.arguments[0], x - 220, y);
-              if (aid) addConn(aid, "out", nid, "obj");
-            }
-            return nid;
-          }
-          if (prop === "values") {
-            const nid = placeNode("obj_values", x, y, {});
-            if (node.arguments[0]) {
-              const aid = exprToNode(node.arguments[0], x - 220, y);
-              if (aid) addConn(aid, "out", nid, "obj");
+              if (aid)
+                addConn(aid, "out", nid, prop === "assign" ? "a" : "obj");
+              if (prop === "assign" && node.arguments[1]) {
+                const bid = exprToNode(node.arguments[1], x - 220, y + 70);
+                if (bid) addConn(bid, "out", nid, "b");
+              }
             }
             return nid;
           }
         }
 
-        const strMethods = {
-          toUpperCase: "str_upper",
-          toLowerCase: "str_lower",
-          trim: "str_trim",
-          length: "str_length",
-        };
-        const arrMethods = { pop: "arr_pop", length: "arr_length" };
+        if (obj.type === "Identifier" && obj.name === "Array") {
+          if (prop === "from") {
+            const nid = placeNode("arr_from", x, y, {});
+            if (node.arguments[0]) {
+              const aid = exprToNode(node.arguments[0], x - 220, y);
+              if (aid) addConn(aid, "out", nid, "val");
+            }
+            return nid;
+          }
+          if (prop === "isArray") {
+            const nid = placeNode("arr_isarray", x, y, {});
+            if (node.arguments[0]) {
+              const aid = exprToNode(node.arguments[0], x - 220, y);
+              if (aid) addConn(aid, "out", nid, "val");
+            }
+            return nid;
+          }
+          if (prop === "of") {
+            const nid = placeNode("arr_of", x, y, {});
+            node.arguments.slice(0, 3).forEach((arg, i) => {
+              const aid = exprToNode(arg, x - 220, y + i * 60 - 60);
+              if (aid) addConn(aid, "out", nid, `v${i}`);
+            });
+            return nid;
+          }
+        }
 
         const methodMap = {
           toUpperCase: "str_upper",
           toLowerCase: "str_lower",
           trim: "str_trim",
+          trimStart: "str_trimstart",
+          trimEnd: "str_trimend",
           split: "str_split",
           includes: "str_includes",
           replace: "str_replace",
+          replaceAll: "str_replaceall",
           slice: "str_slice",
+          at: null,
           push: "arr_push",
           pop: "arr_pop",
+          shift: "arr_shift",
+          unshift: "arr_unshift",
           map: "arr_map",
           filter: "arr_filter",
           reduce: "arr_reduce",
           find: "arr_find",
+          findIndex: "arr_findindex",
+          findLast: "arr_findlast",
           join: "arr_join",
+          flat: "arr_flat",
+          flatMap: "arr_flatmap",
+          every: "arr_every",
+          some: "arr_some",
+          sort: "arr_sort",
+          reverse: "arr_reverse",
+          concat: "arr_concat",
+          fill: "arr_fill",
           then: "then",
           catch: "catch_err",
+          toFixed: "num_tofixed",
         };
+
+        if (prop === "at") {
+          const isStr =
+            ["Literal"].includes(obj.type) && typeof obj.value === "string";
+          const nid = placeNode(isStr ? "str_at" : "arr_at", x, y, {});
+          const objId = exprToNode(obj, x - 220, y - 40);
+          const inPort = isStr ? "str" : "arr";
+          if (objId) addConn(objId, "out", nid, inPort);
+          if (node.arguments[0]) {
+            const idxId = exprToNode(node.arguments[0], x - 220, y + 40);
+            if (idxId) addConn(idxId, "out", nid, "idx");
+          }
+          return nid;
+        }
 
         if (methodMap[prop]) {
           const nid = placeNode(methodMap[prop], x, y, {});
@@ -2905,34 +3089,64 @@ async function parseJSIntoNodes(code) {
             "str_upper",
             "str_lower",
             "str_trim",
+            "str_trimstart",
+            "str_trimend",
             "str_length",
+            "str_split",
+            "str_includes",
+            "str_replace",
+            "str_replaceall",
+            "str_slice",
+            "str_at",
           ].includes(methodMap[prop])
             ? "str"
             : [
                   "arr_pop",
+                  "arr_shift",
                   "arr_length",
                   "arr_map",
                   "arr_filter",
                   "arr_reduce",
                   "arr_find",
+                  "arr_findindex",
+                  "arr_findlast",
                   "arr_join",
+                  "arr_flat",
+                  "arr_flatmap",
+                  "arr_every",
+                  "arr_some",
+                  "arr_sort",
+                  "arr_reverse",
+                  "arr_at",
                 ].includes(methodMap[prop])
               ? "arr"
               : ["then", "catch_err"].includes(methodMap[prop])
                 ? "promise"
-                : "obj";
+                : methodMap[prop] === "num_tofixed"
+                  ? "val"
+                  : "obj";
           if (objId) addConn(objId, "out", nid, inPort);
           const argPorts = {
             str_split: ["sep"],
             str_includes: ["sub"],
             str_replace: ["from", "to"],
+            str_replaceall: ["from", "to"],
             str_slice: ["start", "end"],
             arr_push: ["val"],
-            arr_map: ["fn"],
-            arr_filter: ["fn"],
-            arr_reduce: ["fn"],
-            arr_find: ["fn"],
+            arr_unshift: ["val"],
+            arr_map: ["fn_port"],
+            arr_filter: ["fn_port"],
+            arr_reduce: ["fn_port"],
+            arr_find: ["fn_port"],
+            arr_findindex: [],
+            arr_findlast: [],
             arr_join: ["sep"],
+            arr_flat: [],
+            arr_flatmap: ["fn_port"],
+            arr_every: ["fn_port"],
+            arr_some: ["fn_port"],
+            arr_concat: ["b"],
+            arr_fill: ["val"],
           };
           if (argPorts[methodMap[prop]]) {
             node.arguments
@@ -2988,6 +3202,37 @@ async function parseJSIntoNodes(code) {
           }
           return nid;
         }
+        if (name === "Number") {
+          const nid = placeNode("number_cast", x, y, {});
+          if (node.arguments[0]) {
+            const aid = exprToNode(node.arguments[0], x - 220, y);
+            if (aid) addConn(aid, "out", nid, "val");
+          }
+          return nid;
+        }
+        if (name === "Boolean") {
+          const nid = placeNode("bool_cast", x, y, {});
+          if (node.arguments[0]) {
+            const aid = exprToNode(node.arguments[0], x - 220, y);
+            if (aid) addConn(aid, "out", nid, "val");
+          }
+          return nid;
+        }
+        if (name === "Symbol") {
+          const nid = placeNode("symbol_node", x, y, {});
+          if (node.arguments[0]?.type === "Literal") {
+            nodes[nid] && (nodes[nid].f.desc = String(node.arguments[0].value));
+          }
+          return nid;
+        }
+        if (name === "structuredClone") {
+          const nid = placeNode("structured_clone", x, y, {});
+          if (node.arguments[0]) {
+            const aid = exprToNode(node.arguments[0], x - 220, y);
+            if (aid) addConn(aid, "out", nid, "val");
+          }
+          return nid;
+        }
         if (name === "alert") {
           const nid = placeNode("alert_node", x, y, {});
           if (node.arguments[0]) {
@@ -2996,7 +3241,22 @@ async function parseJSIntoNodes(code) {
           }
           return nid;
         }
-
+        if (name === "isNaN") {
+          const nid = placeNode("isnan", x, y, {});
+          if (node.arguments[0]) {
+            const aid = exprToNode(node.arguments[0], x - 220, y);
+            if (aid) addConn(aid, "out", nid, "val");
+          }
+          return nid;
+        }
+        if (name === "isFinite") {
+          const nid = placeNode("isfinite", x, y, {});
+          if (node.arguments[0]) {
+            const aid = exprToNode(node.arguments[0], x - 220, y);
+            if (aid) addConn(aid, "out", nid, "val");
+          }
+          return nid;
+        }
         const nid = placeNode("call", x, y, { fn: name });
         node.arguments.slice(0, 3).forEach((arg, i) => {
           const aid = exprToNode(arg, x - 220, y + i * 70 - 70);
@@ -3047,9 +3307,7 @@ async function parseJSIntoNodes(code) {
       return nid;
     }
 
-    if (node.type === "SpreadElement") {
-      return exprToNode(node.argument, x, y);
-    }
+    if (node.type === "SpreadElement") return exprToNode(node.argument, x, y);
 
     if (node.type === "AwaitExpression") {
       const nid = placeNode("await_node", x, y, {});
@@ -3058,6 +3316,15 @@ async function parseJSIntoNodes(code) {
       return nid;
     }
 
+    if (
+      node.type === "ArrowFunctionExpression" ||
+      node.type === "FunctionExpression"
+    ) {
+      const raw = code.slice(node.start, node.end);
+      return placeNode("raw_js", x, y, { code: raw });
+    }
+
+    unhandled.add(node.type);
     return placeNode("raw_js", x, y, {
       code: code.slice(node.start, node.end),
     });
@@ -3123,8 +3390,46 @@ async function parseJSIntoNodes(code) {
       return;
     }
 
+    if (stmt.type === "ForOfStatement") {
+      const nid = placeNode("for_of", x, y, {
+        item: stmt.left.declarations?.[0]?.id?.name || "item",
+        body: code
+          .slice(stmt.body.start, stmt.body.end)
+          .replace(/^\{|\}$/g, "")
+          .trim(),
+      });
+      const iterId = exprToNode(stmt.right, x - 220, y - 40);
+      if (iterId) addConn(iterId, "out", nid, "iter");
+      return;
+    }
+
+    if (stmt.type === "ForInStatement") {
+      const nid = placeNode("for_in", x, y, {
+        key: stmt.left.declarations?.[0]?.id?.name || "key",
+        body: code
+          .slice(stmt.body.start, stmt.body.end)
+          .replace(/^\{|\}$/g, "")
+          .trim(),
+      });
+      const objId = exprToNode(stmt.right, x - 220, y - 40);
+      if (objId) addConn(objId, "out", nid, "obj");
+      return;
+    }
+
     if (stmt.type === "WhileStatement") {
       const nid = placeNode("while_loop", x, y, {
+        body: code
+          .slice(stmt.body.start, stmt.body.end)
+          .replace(/^\{|\}$/g, "")
+          .trim(),
+      });
+      const condId = exprToNode(stmt.test, x - 220, y - 40);
+      if (condId) addConn(condId, "out", nid, "cond");
+      return;
+    }
+
+    if (stmt.type === "DoWhileStatement") {
+      const nid = placeNode("do_while", x, y, {
         body: code
           .slice(stmt.body.start, stmt.body.end)
           .replace(/^\{|\}$/g, "")
@@ -3168,6 +3473,25 @@ async function parseJSIntoNodes(code) {
       return;
     }
 
+    if (stmt.type === "ThrowStatement") {
+      const nid = placeNode("throw_node", x, y, {});
+      if (stmt.argument) {
+        const aid = exprToNode(stmt.argument, x - 220, y);
+        if (aid) addConn(aid, "out", nid, "val");
+      }
+      return;
+    }
+
+    if (stmt.type === "BreakStatement") {
+      placeNode("break_node", x, y, {});
+      return;
+    }
+    if (stmt.type === "ContinueStatement") {
+      placeNode("continue_node", x, y, {});
+      return;
+    }
+
+    unhandled.add(stmt.type);
     placeNode("raw_js", x, y, { code: code.slice(stmt.start, stmt.end) });
   }
 
@@ -3177,6 +3501,14 @@ async function parseJSIntoNodes(code) {
 
   drawWires();
   showHint();
+
+  if (unhandled.size) {
+    setTimeout(
+      () => toast(`fell back to raw js: ${[...unhandled].join(", ")}`),
+      400,
+    );
+  }
+
   return count;
 }
 
