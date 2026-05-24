@@ -19,6 +19,8 @@ const TABS = [
   { id: "html", label: "html" },
   { id: "css", label: "css" },
   { id: "regex", label: "regex" },
+  { id: "events", label: "events" },
+  { id: "canvas", label: "canvas" },
 ];
 
 let nodes = {};
@@ -1412,7 +1414,7 @@ function compileCode() {
 
   function getExpr(nodeId, portId) {
     const c = Object.values(conns).find(
-      (c) => c.tn === nodeId && c.tp === portId && c.kind !== "exec",
+      (c) => c.tn === nodeId && c.tp === portId && c.kind !== "exec"
     );
     if (!c) return "/* unconnected */";
     const src = nodes[c.fn];
@@ -1422,7 +1424,7 @@ function compileCode() {
     if (visiting.has(key)) return "/* cycle */";
     visiting.add(key);
     let result;
-    if (def.ref) result = def.ref(src);
+    if (def.ref) result = def.ref(src, c.fp);
     else if (def.expr) result = def.gen(src, getExpr);
     else result = "/* non-expr */";
     visiting.delete(key);
@@ -1435,10 +1437,10 @@ function compileCode() {
     if (node.type === "exec_if") {
       const cond = getExpr(node.id, "cond");
       const thenConn = Object.values(conns).find(
-        (c) => c.fn === node.id && c.fp === "then" && c.kind === "exec",
+        (c) => c.fn === node.id && c.fp === "then" && c.kind === "exec"
       );
       const elseConn = Object.values(conns).find(
-        (c) => c.fn === node.id && c.fp === "else" && c.kind === "exec",
+        (c) => c.fn === node.id && c.fp === "else" && c.kind === "exec"
       );
       const thenCode = thenConn ? compileChain(nodes[thenConn.tn]) : "";
       const elseCode = elseConn ? compileChain(nodes[elseConn.tn]) : "";
@@ -1460,38 +1462,55 @@ function compileCode() {
       const code = compileNode(current);
       if (code) lines.push(code);
       const next = Object.values(conns).find(
-        (c) =>
-          c.fn === current.id && c.fp === "__exec_out" && c.kind === "exec",
+        (c) => c.fn === current.id && c.fp === "__exec_out" && c.kind === "exec"
       );
       current = next ? nodes[next.tn] : null;
     }
     return lines.join("\n");
   }
 
-  const entryNode = Object.values(nodes).find((n) => n.type === "entry");
+  const globalLines = Object.values(nodes)
+    .filter(n => TYPES[n.type]?.isGlobal)
+    .map(n => `${n.f.kind || "let"} ${n.f.name || "myVar"} = ${n.f.init ?? "0"};`);
+
+  const eventNodes = Object.values(nodes).filter(n => TYPES[n.type]?.isEvent);
+
+  const eventLines = eventNodes.map(n => {
+    const def = TYPES[n.type];
+    if (!def?.compileEvent) return "";
+    const firstConn = Object.values(conns).find(
+      c => c.fn === n.id && c.fp === "__exec_out" && c.kind === "exec"
+    );
+    const body = firstConn ? compileChain(nodes[firstConn.tn]) : "";
+    return def.compileEvent(n, getExpr, body);
+  }).filter(Boolean);
+
+  if (eventNodes.length || globalLines.length) {
+    const parts = [...globalLines];
+    if (globalLines.length && eventLines.length) parts.push("");
+    parts.push(...eventLines);
+    return parts.join("\n").trim() || "// nothing connected";
+  }
+
+  const entryNode = Object.values(nodes).find(n => n.type === "entry");
   if (entryNode) {
     const firstConn = Object.values(conns).find(
-      (c) => c.fn === entryNode.id && c.fp === "out" && c.kind === "exec",
+      c => c.fn === entryNode.id && c.fp === "out" && c.kind === "exec"
     );
     if (firstConn && nodes[firstConn.tn]) {
-      return (
-        compileChain(nodes[firstConn.tn]) || "// nothing connected to start"
-      );
+      return compileChain(nodes[firstConn.tn]) || "// nothing connected to start";
     }
     return "// connect ▶ start to something";
   }
 
   const sorted = topoSort(nodes, conns);
   const lines = [];
-  sorted.forEach((n) => {
+  sorted.forEach(n => {
     const def = TYPES[n.type];
     if (!def) return;
-    if (def.stmt) {
-      lines.push(def.gen(n, getExpr));
-    } else if (def.expr) {
-      const hasOutConn = Object.values(conns).some(
-        (c) => c.fn === n.id && c.kind !== "exec",
-      );
+    if (def.stmt) lines.push(def.gen(n, getExpr));
+    else if (def.expr) {
+      const hasOutConn = Object.values(conns).some(c => c.fn === n.id && c.kind !== "exec");
       if (!hasOutConn) lines.push(def.gen(n, getExpr) + ";");
     }
   });
@@ -2080,6 +2099,8 @@ const SETTINGS_DEFAULTS = {
   uiFontSize: 13,
   cursorColor: "#d4b87a",
   cursorSize: 1,
+  colEvent: "#e05080",
+  colCanvas: "#50a878",
 };
 
 let SETTINGS = { ...SETTINGS_DEFAULTS };
@@ -2115,6 +2136,8 @@ function applySettings() {
   r.setProperty("--col-flow", SETTINGS.colFlow);
   r.setProperty("--col-fn", SETTINGS.colFn);
   r.setProperty("--col-out", SETTINGS.colOut);
+  r.setProperty("--col-event", SETTINGS.colEvent);
+  r.setProperty("--col-canvas", SETTINGS.colCanvas);
   r.setProperty("--col-string", SETTINGS.colString);
   r.setProperty("--col-array", SETTINGS.colArray);
   r.setProperty("--col-obj", SETTINGS.colObj);
@@ -2654,6 +2677,143 @@ function buildSettingsModal() {
     });
     inp.click();
   });
+}
+
+function buildPreviewHtml(js) {
+  const assets = {};
+  Object.values(nodes).forEach(n => {
+    if (n.type === "asset_ref" && n.f.id && assetCache[n.f.id]) {
+      const a = assetCache[n.f.id];
+      assets[n.f.id] = { id: a.id, name: a.name, kind: a.kind, data: a.data };
+    }
+  });
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>*{box-sizing:border-box}body{margin:0;font-family:sans-serif}</style>
+</head>
+<body>
+<script>
+const __assets=${JSON.stringify(assets)};
+const __pm=(...a)=>window.parent.postMessage(a,'*');
+const __fmt=x=>typeof x==='object'?JSON.stringify(x,null,2):String(x);
+const console={
+  log:(...a)=>__pm({type:'log',level:'log',args:a.map(__fmt)}),
+  error:(...a)=>__pm({type:'log',level:'error',args:a.map(__fmt)}),
+  warn:(...a)=>__pm({type:'log',level:'warn',args:a.map(__fmt)}),
+  info:(...a)=>__pm({type:'log',level:'log',args:a.map(__fmt)}),
+  table:(...a)=>__pm({type:'log',level:'log',args:a.map(__fmt)}),
+};
+window.onerror=(msg,_,__,___,err)=>__pm({type:'log',level:'error',args:[err?.stack||msg]});
+window.onunhandledrejection=e=>__pm({type:'log',level:'error',args:[String(e.reason)]});
+try{
+${js}
+}catch(e){__pm({type:'log',level:'error',args:[e.stack||e.message]});}
+<\/script>
+</body>
+</html>`;
+}
+
+let _previewMsgHandler = null;
+
+function runInPreview() {
+  const output = document.getElementById("run-output");
+  output.innerHTML = "";
+  document.getElementById("run-header-label").textContent = "running in preview";
+  document.getElementById("run-dot").classList.remove("err");
+
+  let code;
+  try {
+    code = compileCode();
+  } catch(e) {
+    appendConsoleEntry(output, "error", ["compile error: " + e.message], 0);
+    document.getElementById("run-header-label").textContent = "compile error";
+    document.getElementById("run-dot").classList.add("err");
+    return;
+  }
+
+  if (_previewMsgHandler) window.removeEventListener("message", _previewMsgHandler);
+  const start = performance.now();
+  _previewMsgHandler = (e) => {
+    const frame = document.getElementById("preview-frame");
+    if (!frame || e.source !== frame.contentWindow) return;
+    const d = e.data;
+    if (d?.type === "log") {
+      appendConsoleEntry(output, d.level, d.args, Math.round(performance.now() - start));
+      document.getElementById("run-header-label").textContent = "preview running";
+    }
+  };
+  window.addEventListener("message", _previewMsgHandler);
+
+  openPreviewPanel(buildPreviewHtml(code));
+}
+
+function openPreviewPanel(html) {
+  let panel = document.getElementById("preview-panel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "preview-panel";
+    panel.innerHTML = `
+      <div id="preview-bar">
+        <span style="font-size:11px;font-weight:600;color:var(--cream2)">preview</span>
+        <div style="display:flex;gap:5px;align-items:center">
+          <button class="btn" id="preview-refresh" title="rerun">↺</button>
+          <button class="btn" id="preview-popout" title="open in new tab">↗</button>
+          <button class="btn" id="preview-close">✕</button>
+        </div>
+      </div>
+      <iframe id="preview-frame" sandbox="allow-scripts"></iframe>
+    `;
+    document.body.appendChild(panel);
+
+    const rh = document.createElement("div");
+    rh.id = "preview-resize";
+    panel.appendChild(rh);
+
+    let rsz = false, rsxStart = 0, rswStart = 0;
+    rh.addEventListener("mousedown", e => {
+      rsz = true;
+      rsxStart = e.clientX;
+      rswStart = panel.offsetWidth;
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", e => {
+      if (!rsz) return;
+      const w = Math.max(280, Math.min(window.innerWidth - 380, rswStart + (rsxStart - e.clientX)));
+      panel.style.width = w + "px";
+      document.getElementById("canvas-wrap").style.right = w + "px";
+      document.getElementById("console-panel").style.right = w + "px";
+    });
+    document.addEventListener("mouseup", () => { rsz = false; });
+
+    document.getElementById("preview-close").addEventListener("click", closePreviewPanel);
+    document.getElementById("preview-refresh").addEventListener("click", runCode);
+    document.getElementById("preview-popout").addEventListener("click", () => {
+      const frame = document.getElementById("preview-frame");
+      if (!frame?.srcdoc) return;
+      const w = window.open("", "_blank");
+      if (w) { w.document.open(); w.document.write(frame.srcdoc); w.document.close(); }
+    });
+  }
+
+  const frame = document.getElementById("preview-frame");
+  frame.srcdoc = html;
+  panel.classList.add("open");
+  const w = panel.offsetWidth || 480;
+  document.getElementById("canvas-wrap").style.right = w + "px";
+  document.getElementById("console-panel").style.right = w + "px";
+}
+
+function closePreviewPanel() {
+  document.getElementById("preview-panel")?.classList.remove("open");
+  document.getElementById("canvas-wrap").style.right = "0";
+  document.getElementById("console-panel").style.right = "0";
+  if (_previewMsgHandler) {
+    window.removeEventListener("message", _previewMsgHandler);
+    _previewMsgHandler = null;
+  }
 }
 
 async function boot() {
@@ -3551,6 +3711,10 @@ function appendConsoleEntry(output, level, args, ms) {
 }
 
 function runCode() {
+  if (Object.values(nodes).some(n => TYPES[n.type]?.isEvent || TYPES[n.type]?.isGlobal)) {
+    runInPreview();
+    return;
+  }
   const output = document.getElementById("run-output");
   output.innerHTML = "";
   document.getElementById("run-header-label").textContent = "running...";
