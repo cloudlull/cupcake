@@ -16,6 +16,9 @@ const TABS = [
   { id: "date", label: "date" },
   { id: "output", label: "out" },
   { id: "assets", label: "assets" },
+  { id: "html", label: "html" },
+  { id: "css", label: "css" },
+  { id: "regex", label: "regex" },
 ];
 
 let nodes = {};
