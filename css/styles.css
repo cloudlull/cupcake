@@ -33,6 +33,9 @@
   --col-async: #906040;
   --col-dom: #507870;
   --col-date: #705090;
+  --col-html: #c47a3a;
+  --col-css: #3a7ac4;
+  --col-regex: #8a3ac4;
 }
 
 body {
