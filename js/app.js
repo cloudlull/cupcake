@@ -2504,6 +2504,11 @@ function buildSettingsModal() {
         { type: "toggle", label: "cat animation", key: "catAnimation" },
       ],
     },
+    {
+      id: "about",
+      label: "about",
+      rows: [], // we'll render this manually bitch
+    },
   ];
 
   const tabsEl = modal.querySelector("#settings-tabs");
@@ -2623,6 +2628,25 @@ function buildSettingsModal() {
 
     panesEl.appendChild(pane);
   });
+
+  // custom about pane
+  const aboutPane = panesEl.querySelector('[data-id="about"]');
+  if (aboutPane) {
+    aboutPane.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;padding:32px 20px;text-align:center;">
+        <div style="font-size:32px">🧁</div>
+        <div style="font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-0.5px">cupcake</div>
+        <div style="font-size:10px;color:var(--cream3);font-family:'DM Mono',monospace;letter-spacing:0.3px">visual js</div>
+        <div style="width:40px;height:1px;background:var(--b2)"></div>
+        <div style="font-size:11px;color:var(--cream2);line-height:2">
+          developed by <span style="color:var(--accent)">cloudlull</span><br>
+          <a href="https://cloudlull.fyi" target="_blank" style="color:var(--accent2);font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;">cloudlull.fyi</a>
+        </div>
+        <div style="font-size:10px;color:var(--cream3);font-family:'DM Mono',monospace">licensed with MIT</div>
+        <div style="font-size:10px;color:var(--cream3);font-family:'DM Mono',monospace">2026</div>
+      </div>
+    `;
+  }
 
   modal
     .querySelector("#settings-close")
