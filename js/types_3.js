@@ -1,3 +1,4 @@
+// types_3.js
 const TYPES_3 = {
   global_var: {
     label: "global variable",
