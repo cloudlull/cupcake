@@ -36,6 +36,8 @@
   --col-html: #c47a3a;
   --col-css: #3a7ac4;
   --col-regex: #8a3ac4;
+  --col-event: #e05080;
+  --col-canvas: #50a878;
 }
 
 body {
@@ -1711,3 +1713,45 @@ a {
   scrollbar-width: thin;
   scrollbar-color: var(--b2) transparent;
 }
+
+#preview-panel {
+  position: fixed;
+  top: 44px;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  background: #fff;
+  border-left: 1px solid var(--b1);
+  display: none;
+  flex-direction: column;
+  z-index: 90;
+}
+#preview-panel.open {
+  display: flex;
+}
+#preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--b1);
+  flex-shrink: 0;
+  height: 36px;
+}
+#preview-frame {
+  flex: 1;
+  border: none;
+  width: 100%;
+  background: #fff;
+}
+#preview-resize {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
